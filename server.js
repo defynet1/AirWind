@@ -8,7 +8,7 @@ const crypto    = require('crypto');
 const WebSocket = require('ws');
 const initSqlJs = require('sql.js');
 
-const DB_FILE = path.join(__dirname, 'airwind.db');
+const DB_FILE = path.join(process.env.DATA_DIR || __dirname, 'airwind.db');
 
 // ─── sql.js helpers ───────────────────────────────
 let db = null;

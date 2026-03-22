@@ -1,0 +1,13 @@
+{
+  "name": "airwind",
+  "version": "2.0.0",
+  "description": "AirWind Messenger — persistent SQLite server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "sql.js": "^1.14.1",
+    "ws": "^8.20.0"
+  }
+}

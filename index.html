@@ -405,7 +405,7 @@ function handle({type,payload}){
       if(payload.chatId!==openChatId)break;
       const names=payload.userIds.filter(id=>id!==me.id).map(id=>S.users[id]?.displayName||'?');
       const tb=document.getElementById('typing-bar');
-      if(tb)tb.textContent=names.length?names.join(', ')+(names.length===1?' печатает...'>' печатают...'):'';
+      if(tb)tb.textContent=names.length?names.join(', ')+(names.length===1?' печатает...':' печатают...'):'';
       break;}
   }
 }

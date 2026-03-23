@@ -73,6 +73,14 @@ async function initDB() {
     user_id TEXT NOT NULL, text TEXT NOT NULL,
     ts BIGINT NOT NULL
   )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS message_reactions (
+    msg_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL,
+    PRIMARY KEY (msg_id, user_id)
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS post_reactions (
+    post_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+  )`);
 
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
@@ -150,18 +158,28 @@ async function getMessages(chatId, limit = 200, before = null) {
   if (before) { p.push(before); sql += ` AND m.ts<$${p.length}`; }
   p.push(limit);
   sql += ` GROUP BY m.id ORDER BY m.ts ASC LIMIT $${p.length}`;
-  return (await dbAll(sql, p)).map(toMsg);
+  const msgs = (await dbAll(sql, p)).map(toMsg);
+  if (msgs.length) {
+    const reacMap = await getMsgReactionsMap(msgs.map(m => m.id));
+    msgs.forEach(m => { m.reactions = reacMap[m.id] || {}; });
+  }
+  return msgs;
 }
 async function getMessageById(id) {
   const m = await dbGet(`SELECT m.*, STRING_AGG(rr.user_id, ',') as read_by
     FROM messages m LEFT JOIN read_receipts rr ON m.id=rr.msg_id
     WHERE m.id=$1 GROUP BY m.id`, [id]);
-  return m ? toMsg(m) : null;
+  if (!m) return null;
+  const msg = toMsg(m);
+  const reacMap = await getMsgReactionsMap([id]);
+  msg.reactions = reacMap[id] || {};
+  return msg;
 }
 function toMsg(m) {
   return { id: m.id, chatId: m.chat_id, senderId: m.sender_id,
     text: m.text, ts: Number(m.ts), edited: !!m.edited,
-    readBy: m.read_by ? m.read_by.split(',') : [m.sender_id] };
+    readBy: m.read_by ? m.read_by.split(',') : [m.sender_id],
+    reactions: {} };
 }
 async function insertMessage(chatId, senderId, text) {
   const id = newId(), ts = Date.now();
@@ -193,6 +211,36 @@ async function deleteMsg(msgId, userId) {
   return m;
 }
 
+// ─── Reaction helpers ─────────────────────────────
+async function getMsgReactionsMap(msgIds) {
+  if (!msgIds.length) return {};
+  const rows = await dbAll(
+    `SELECT msg_id, emoji, STRING_AGG(user_id, ',') as user_ids
+     FROM message_reactions WHERE msg_id = ANY($1::text[]) GROUP BY msg_id, emoji`,
+    [msgIds]
+  );
+  const map = {};
+  for (const r of rows) {
+    if (!map[r.msg_id]) map[r.msg_id] = {};
+    map[r.msg_id][r.emoji] = r.user_ids.split(',').filter(Boolean);
+  }
+  return map;
+}
+async function getPostReactionsMap(postIds) {
+  if (!postIds.length) return {};
+  const rows = await dbAll(
+    `SELECT post_id, emoji, STRING_AGG(user_id, ',') as user_ids
+     FROM post_reactions WHERE post_id = ANY($1::text[]) GROUP BY post_id, emoji`,
+    [postIds]
+  );
+  const map = {};
+  for (const r of rows) {
+    if (!map[r.post_id]) map[r.post_id] = {};
+    map[r.post_id][r.emoji] = r.user_ids.split(',').filter(Boolean);
+  }
+  return map;
+}
+
 // ─── Post ops ─────────────────────────────────────
 async function getFeed(limit = 20, before = null) {
   const p = before ? [before, limit] : [Date.now() + 1, limit];
@@ -205,7 +253,12 @@ async function getFeed(limit = 20, before = null) {
     WHERE p.ts < $1
     GROUP BY p.id ORDER BY p.ts DESC LIMIT $2
   `, p);
-  return rows.map(toPost);
+  const posts = rows.map(toPost);
+  if (posts.length) {
+    const reacMap = await getPostReactionsMap(posts.map(p => p.id));
+    posts.forEach(p => { p.reactions = reacMap[p.id] || {}; });
+  }
+  return posts;
 }
 function toPost(p) {
   return {
@@ -213,7 +266,8 @@ function toPost(p) {
     mediaData: p.media_data, caption: p.caption,
     ts: Number(p.ts),
     likes: p.likes ? p.likes.split(',').filter(Boolean) : [],
-    commentCount: Number(p.comment_count || 0)
+    commentCount: Number(p.comment_count || 0),
+    reactions: {}
   };
 }
 async function getPostComments(postId) {
@@ -391,6 +445,32 @@ wss.on('connection', ws => {
       await dbRun(`INSERT INTO post_comments(id,post_id,user_id,text,ts) VALUES($1,$2,$3,$4,$5)`,
         [id, postId, inf.userId, text.trim(), ts]);
       bcastAll({type:'new_comment',payload:{comment:{id,postId,userId:inf.userId,text:text.trim(),ts}}});
+
+    } else if (type === 'react_message') {
+      if (!inf) return;
+      const { msgId, emoji } = payload;
+      const msg = await getMessageById(msgId);
+      if (!msg) return;
+      const existing = await dbGet(`SELECT emoji FROM message_reactions WHERE msg_id=$1 AND user_id=$2`, [msgId, inf.userId]);
+      if (existing && existing.emoji === emoji) {
+        await dbRun(`DELETE FROM message_reactions WHERE msg_id=$1 AND user_id=$2`, [msgId, inf.userId]);
+      } else {
+        await dbRun(`INSERT INTO message_reactions(msg_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT(msg_id,user_id) DO UPDATE SET emoji=$3`, [msgId, inf.userId, emoji]);
+      }
+      const reacMap = await getMsgReactionsMap([msgId]);
+      await bcastChat(msg.chatId, {type:'message_reacted', payload:{msgId, chatId:msg.chatId, reactions:reacMap[msgId]||{}}});
+
+    } else if (type === 'react_post') {
+      if (!inf) return;
+      const { postId, emoji } = payload;
+      const existing = await dbGet(`SELECT emoji FROM post_reactions WHERE post_id=$1 AND user_id=$2`, [postId, inf.userId]);
+      if (existing && existing.emoji === emoji) {
+        await dbRun(`DELETE FROM post_reactions WHERE post_id=$1 AND user_id=$2`, [postId, inf.userId]);
+      } else {
+        await dbRun(`INSERT INTO post_reactions(post_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT(post_id,user_id) DO UPDATE SET emoji=$3`, [postId, inf.userId, emoji]);
+      }
+      const reacMap = await getPostReactionsMap([postId]);
+      bcastAll({type:'post_reacted', payload:{postId, reactions:reacMap[postId]||{}}});
 
     } else if (type === 'load_comments') {
       if (!inf) return;

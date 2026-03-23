@@ -170,6 +170,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .dbtn:hover{background:rgba(255,92,106,.14)}
 .hidden{display:none!important}
 
+/* ── REACTIONS ── */
+.rpicker{position:fixed;z-index:300;background:var(--sf);border:1px solid var(--br);border-radius:50px;padding:5px 10px;display:flex;gap:2px;box-shadow:0 8px 28px rgba(0,0,0,.5);animation:pop .15s cubic-bezier(.34,1.56,.64,1)}
+.rpicker-btn{background:none;border:none;font-size:21px;cursor:pointer;padding:3px 5px;border-radius:50%;transition:transform .12s;line-height:1}
+.rpicker-btn:hover{transform:scale(1.4)}
+.msg-reactions{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.rbadge{display:inline-flex;align-items:center;gap:3px;background:var(--sf2);border:1px solid var(--br);border-radius:12px;padding:2px 7px;font-size:14px;cursor:pointer;transition:.12s;user-select:none;line-height:1.3}
+.rbadge:hover{border-color:var(--ac)}
+.rbadge.mine{background:rgba(91,140,255,.15);border-color:var(--ac)}
+.rbadge .rcount{font-size:11px;color:var(--tx2);font-family:var(--mono)}
+.post-reactions{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.padd-btn{background:var(--sf2);border:1px solid var(--br);border-radius:12px;padding:2px 8px;font-size:15px;cursor:pointer;transition:.12s;line-height:1.4}
+.padd-btn:hover{border-color:var(--ac);background:var(--sf3)}
+
 /* ── SIDEBAR TABS ── */
 .stabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--br)}
 .stab{flex:1;padding:7px 0;border:none;background:transparent;color:var(--tx2);font-family:var(--font);font-size:13px;font-weight:500;border-radius:7px;cursor:pointer;transition:.15s}
@@ -553,6 +566,21 @@ function handle({type,payload}){
       S.comments[payload.postId]=payload.comments;
       renderComments(payload.postId);
       break;
+
+    case 'post_reacted':{
+      const p=S.feed.find(x=>x.id===payload.postId);
+      if(p) p.reactions=payload.reactions;
+      const rel=document.getElementById('pr_'+payload.postId);
+      if(rel) rel.innerHTML=reactionBadgesHtml(payload.reactions,'post',payload.postId);
+      break;}
+
+    case 'message_reacted':{
+      const arr=S.msgs[payload.chatId]||[];
+      const rm=arr.find(x=>x.id===payload.msgId);
+      if(rm) rm.reactions=payload.reactions;
+      const mel=document.getElementById('mr_'+payload.msgId);
+      if(mel) mel.innerHTML=reactionBadgesHtml(payload.reactions,'msg',payload.msgId);
+      break;}
   }
 }
 
@@ -695,12 +723,14 @@ function bubbleHtml(m,isGroup){
     ${sent?`<button class="mac" title="Редактировать" onclick="startEdit('${m.id}')">✏️</button>`:''}
     ${sent?`<button class="mac" title="Удалить" onclick="delMsg('${m.id}')">🗑️</button>`:''}
     <button class="mac" title="Ответить" onclick="startReply('${m.id}')">↩️</button>
+    <button class="mac" title="Реакция" onclick="showReactionPicker(this,'${m.id}','msg')">😊</button>
   </div>`;
   return `<div class="mr ${sent?'sent':'recv'}" id="m_${m.id}">
     ${actions}
     <div class="mb">
       ${senderRow}
       <div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>
+      <div class="msg-reactions" id="mr_${m.id}">${reactionBadgesHtml(m.reactions||{},'msg',m.id)}</div>
       <div class="mfooter">
         ${m.edited&&!m.deleted?`<span class="medit">изм.</span>`:''}
         <span class="mtime">${time}</span>
@@ -869,6 +899,53 @@ function v(id){return(document.getElementById(id)||{}).value||'';}
 
 // enter keys
 // ════════════════════════════════════
+//  REACTIONS
+// ════════════════════════════════════
+const EMOJIS=['❤️','😂','😮','😢','👍','👎','🔥','🎉'];
+let pickerEl=null, pickerOff=null;
+
+function reactionBadgesHtml(reactions, type, id){
+  if(!reactions||!Object.keys(reactions).length) return '';
+  return Object.entries(reactions).map(([emoji,userIds])=>{
+    const mine=me&&userIds.includes(me.id);
+    return `<button class="rbadge${mine?' mine':''}" onclick="quickReact('${id}','${emoji}','${type}')">${emoji}<span class="rcount">${userIds.length}</span></button>`;
+  }).join('');
+}
+
+function quickReact(id,emoji,type){
+  if(type==='msg') emit('react_message',{msgId:id,emoji});
+  else emit('react_post',{postId:id,emoji});
+}
+
+function showReactionPicker(triggerEl,id,type){
+  if(pickerEl){closePicker();return;}
+  const picker=document.createElement('div');
+  picker.className='rpicker';
+  picker.innerHTML=EMOJIS.map(e=>`<button class="rpicker-btn" onclick="pickReaction('${id}','${e}','${type}')">${e}</button>`).join('');
+  document.body.appendChild(picker);
+  pickerEl=picker;
+  const r=triggerEl.getBoundingClientRect();
+  const pw=picker.offsetWidth||240;
+  let left=r.left-(pw/2)+(r.width/2);
+  left=Math.max(8,Math.min(left,window.innerWidth-pw-8));
+  picker.style.left=left+'px';
+  picker.style.top=(r.top-picker.offsetHeight-10+window.scrollY)+'px';
+  pickerOff=e=>{if(!picker.contains(e.target)&&e.target!==triggerEl){closePicker();}};
+  setTimeout(()=>document.addEventListener('click',pickerOff),0);
+}
+
+function closePicker(){
+  if(pickerEl){pickerEl.remove();pickerEl=null;}
+  if(pickerOff){document.removeEventListener('click',pickerOff);pickerOff=null;}
+}
+
+function pickReaction(id,emoji,type){
+  closePicker();
+  if(type==='msg') emit('react_message',{msgId:id,emoji});
+  else emit('react_post',{postId:id,emoji});
+}
+
+// ════════════════════════════════════
 //  FEED
 // ════════════════════════════════════
 function switchSideTab(tab){
@@ -897,7 +974,9 @@ function postCardHtml(p){
       <div class="post-actions">
         <button class="pabtn${liked?' liked':''}" id="like_${p.id}" onclick="likePost('${p.id}')" title="Нравится">${liked?'❤️':'🤍'}</button>
         <button class="pabtn" onclick="openComments('${p.id}')" title="Комментарии">💬</button>
+        <button class="padd-btn" onclick="showReactionPicker(this,'${p.id}','post')" title="Реакция">＋</button>
       </div>
+      <div class="post-reactions" id="pr_${p.id}">${reactionBadgesHtml(p.reactions||{},'post',p.id)}</div>
       ${likesText?`<div class="post-likes" id="likes_${p.id}">${esc(likesText)}</div>`:`<div class="post-likes" id="likes_${p.id}" style="display:none"></div>`}
       ${p.caption?`<div class="post-cap"><strong>${esc(u.displayName||'')}</strong> ${esc(p.caption)}</div>`:''}
       <div class="post-clink" id="ccount_${p.id}" onclick="openComments('${p.id}')">${commText}</div>

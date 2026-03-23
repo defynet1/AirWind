@@ -62,6 +62,8 @@ async function initDB() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS frame TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_frames TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS used_promos TEXT DEFAULT '[]'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_badge TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_badges TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
 
@@ -130,6 +132,7 @@ async function getUserById(id)      { return dbGet(`SELECT * FROM users WHERE id
 async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER BY display_name`); }
 const FRAME_COSTS  = { gold:10, purple:20, blue:30, fire:50, rainbow:80 };
 const PROMO_CODES  = { '67': {coins:1000000,set:false}, '68': {coins:0,set:true} };
+const BADGE_COSTS  = { active:50, popular:200, legend:500, god:2000 };
 
 function safe(u) {
   if (!u) return null;
@@ -140,7 +143,9 @@ function safe(u) {
     status: u.status, lastSeen: Number(u.last_seen), createdAt: Number(u.created_at),
     coins: Number(u.coins || 0),
     frame: u.frame || '',
-    ownedFrames: JSON.parse(u.owned_frames || '[]')
+    ownedFrames: JSON.parse(u.owned_frames || '[]'),
+    statusBadge: u.status_badge || '',
+    ownedBadges: JSON.parse(u.owned_badges || '[]')
   };
 }
 async function addCoins(userId, amount) {
@@ -804,6 +809,38 @@ wss.on('connection', ws => {
       await dbRun(`UPDATE users SET frame=$1 WHERE id=$2`, [frameId||'', inf.userId]);
       const updated = await getUserById(inf.userId);
       bcastAll({type:'user_updated', payload:{user:safe(updated)}});
+
+    } else if (type === 'buy_badge') {
+      if (!inf) return;
+      const { badgeId } = payload;
+      const cost = BADGE_COSTS[badgeId];
+      if (!cost) return;
+      const u = await getUserById(inf.userId);
+      if (!u) return;
+      const owned = JSON.parse(u.owned_badges || '[]');
+      if (owned.includes(badgeId)) {
+        await dbRun(`UPDATE users SET status_badge=$1 WHERE id=$2`, [badgeId, inf.userId]);
+      } else {
+        if (Number(u.coins || 0) < cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
+        owned.push(badgeId);
+        await dbRun(`UPDATE users SET coins=coins-$1, owned_badges=$2, status_badge=$3 WHERE id=$4`,
+          [cost, JSON.stringify(owned), badgeId, inf.userId]);
+      }
+      const updatedB = await getUserById(inf.userId);
+      send(ws, {type:'badge_ok', payload:{badgeId}});
+      bcastAll({type:'user_updated', payload:{user:safe(updatedB)}});
+
+    } else if (type === 'equip_badge') {
+      if (!inf) return;
+      const { badgeId } = payload; // '' to remove badge
+      if (badgeId) {
+        const u = await getUserById(inf.userId);
+        const owned = JSON.parse(u?.owned_badges || '[]');
+        if (!owned.includes(badgeId)) return;
+      }
+      await dbRun(`UPDATE users SET status_badge=$1 WHERE id=$2`, [badgeId||'', inf.userId]);
+      const updatedB = await getUserById(inf.userId);
+      bcastAll({type:'user_updated', payload:{user:safe(updatedB)}});
     }
     } catch(e) { console.error('ws msg error:', e); send(ws,{type:'error',payload:{msg:'Ошибка сервера: '+e.message}}); }
   });

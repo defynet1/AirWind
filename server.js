@@ -58,6 +58,7 @@ async function initDB() {
   )`);
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS coins INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
 
@@ -130,8 +131,14 @@ function safe(u) {
     id: u.id, username: u.username,
     displayName: u.display_name, avatarColor: u.avatar_color,
     avatarUrl: u.avatar_url || '',
-    status: u.status, lastSeen: Number(u.last_seen), createdAt: Number(u.created_at)
+    status: u.status, lastSeen: Number(u.last_seen), createdAt: Number(u.created_at),
+    coins: Number(u.coins || 0)
   };
+}
+async function addCoins(userId, amount) {
+  await dbRun(`UPDATE users SET coins = COALESCE(coins, 0) + $1 WHERE id=$2`, [amount, userId]);
+  const u = await getUserById(userId);
+  if (u) bcastAll({type:'user_updated', payload:{user:safe(u)}});
 }
 
 // ─── Chat ops ─────────────────────────────────────
@@ -593,6 +600,8 @@ wss.on('connection', ws => {
         await dbRun(`DELETE FROM post_likes WHERE post_id=$1 AND user_id=$2`,[postId,inf.userId]);
       } else {
         await dbRun(`INSERT INTO post_likes(post_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`,[postId,inf.userId]);
+        const post = await dbGet(`SELECT user_id FROM posts WHERE id=$1`,[postId]);
+        if (post && post.user_id !== inf.userId) await addCoins(post.user_id, 1);
       }
       const likes = (await dbAll(`SELECT user_id FROM post_likes WHERE post_id=$1`,[postId])).map(r=>r.user_id);
       bcastAll({type:'post_liked',payload:{postId,likes}});
@@ -654,8 +663,13 @@ wss.on('connection', ws => {
 
     } else if (type === 'join_channel') {
       if (!inf) return;
+      const alreadyMember = await dbGet(`SELECT 1 FROM channel_members WHERE channel_id=$1 AND user_id=$2`,[payload.channelId,inf.userId]);
       await dbRun(`INSERT INTO channel_members(channel_id,user_id,role,joined_at) VALUES($1,$2,'member',$3) ON CONFLICT DO NOTHING`,
         [payload.channelId, inf.userId, Date.now()]);
+      if (!alreadyMember) {
+        const chanRow = await dbGet(`SELECT owner_id FROM channels WHERE id=$1`,[payload.channelId]);
+        if (chanRow && chanRow.owner_id !== inf.userId) await addCoins(chanRow.owner_id, 2);
+      }
       const chan = await getChannelForUser(payload.channelId, inf.userId);
       if (!chan) return;
       send(ws,{type:'channel_joined', payload:{channel:chan}});

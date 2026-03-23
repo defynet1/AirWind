@@ -350,6 +350,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <div class="stitle">AirWind</div>
       <button class="ibtn" title="Поиск" onclick="openSearch()">🔍</button>
       <button class="ibtn" title="Новый чат" onclick="openNewChat()">✏️</button>
+      <div id="coins-badge" style="display:none;align-items:center;gap:3px;background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.25);border-radius:20px;padding:3px 8px;font-size:12px;font-weight:600;color:#fbbf24;cursor:default" title="Ваши монеты">🪙 <span id="coins-count">0</span></div>
       <button class="ibtn" title="Профиль" onclick="openProfile()">👤</button>
     </div>
     <div class="stabs">
@@ -613,6 +614,7 @@ function handle({type,payload}){
       me=payload.user; S.users[me.id]=me;
       document.getElementById('auth').style.display='none';
       document.getElementById('app').classList.add('on');
+      updateCoins(me.coins||0);
       renderList(); openChat('__global__'); break;
 
     case 'error': showErr(payload.msg); break;
@@ -624,6 +626,7 @@ function handle({type,payload}){
     case 'user_joined':
     case 'user_updated':
       S.users[payload.user.id]=payload.user;
+      if(me&&payload.user.id===me.id){me=payload.user;updateCoins(me.coins||0);}
       renderList();
       if(openChatId)updateHeader(openChatId); break;
 
@@ -1141,6 +1144,13 @@ function ft(ts){const d=new Date(ts),now=new Date(),pad=n=>String(n).padStart(2,
 function fdh(ts){const d=new Date(ts),now=new Date(),yes=new Date(Date.now()-864e5);if(d.toDateString()===now.toDateString())return'Сегодня';if(d.toDateString()===yes.toDateString())return'Вчера';const m=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];return d.getDate()+' '+m[d.getMonth()]+(d.getFullYear()!==now.getFullYear()?' '+d.getFullYear():'');}
 function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function v(id){return(document.getElementById(id)||{}).value||'';}
+function updateCoins(n){
+  const b=document.getElementById('coins-badge');
+  const c=document.getElementById('coins-count');
+  if(!b||!c)return;
+  c.textContent=n;
+  b.style.display=n>0?'flex':'none';
+}
 
 // enter keys
 // ════════════════════════════════════

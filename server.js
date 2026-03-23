@@ -29,33 +29,37 @@ function hashPw(pw) { return crypto.createHash('sha256').update(pw + 'airwind_v2
 const COLORS = ['#5b8cff','#7c5cfc','#3ecf8e','#ff6b6b','#ffd93d','#6bcb77','#ff8e53','#4ecdc4'];
 
 async function initDB() {
-  await dbRun(`CREATE TABLE IF NOT EXISTS users (
+  // Проверяем соединение — если упадёт, сервер не запустится
+  await pool.query('SELECT 1');
+  console.log('🔌 Соединение с PostgreSQL установлено');
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL,
     display_name TEXT NOT NULL, password TEXT NOT NULL,
     avatar_color TEXT NOT NULL, status TEXT DEFAULT '',
     last_seen BIGINT DEFAULT 0, created_at BIGINT DEFAULT 0
   )`);
-  await dbRun(`CREATE TABLE IF NOT EXISTS chats (
+  await pool.query(`CREATE TABLE IF NOT EXISTS chats (
     id TEXT PRIMARY KEY, is_group INTEGER DEFAULT 0,
     name TEXT, created_at BIGINT DEFAULT 0
   )`);
-  await dbRun(`CREATE TABLE IF NOT EXISTS chat_members (
+  await pool.query(`CREATE TABLE IF NOT EXISTS chat_members (
     chat_id TEXT NOT NULL, user_id TEXT NOT NULL,
     PRIMARY KEY (chat_id, user_id)
   )`);
-  await dbRun(`CREATE TABLE IF NOT EXISTS messages (
+  await pool.query(`CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY, chat_id TEXT NOT NULL,
     sender_id TEXT NOT NULL, text TEXT NOT NULL,
     ts BIGINT NOT NULL, edited INTEGER DEFAULT 0, deleted INTEGER DEFAULT 0
   )`);
-  await dbRun(`CREATE TABLE IF NOT EXISTS read_receipts (
+  await pool.query(`CREATE TABLE IF NOT EXISTS read_receipts (
     msg_id TEXT NOT NULL, user_id TEXT NOT NULL,
     PRIMARY KEY (msg_id, user_id)
   )`);
 
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
-    await dbRun(`INSERT INTO chats(id,is_group,name,created_at) VALUES('__global__',1,'Общий чат',$1)`, [Date.now()]);
+    await pool.query(`INSERT INTO chats(id,is_group,name,created_at) VALUES('__global__',1,'Общий чат',$1)`, [Date.now()]);
     console.log('🌐 Общий чат создан');
   }
   console.log('✅ База данных готова');

@@ -278,16 +278,72 @@ async function getPostComments(postId) {
   return dbAll(`SELECT * FROM post_comments WHERE post_id=$1 ORDER BY ts ASC`, [postId]);
 }
 
+// ─── Uploads ──────────────────────────────────────
+const UPLOADS_DIR = path.join(process.env.DATA_DIR || __dirname, 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+function readBody(req, maxBytes = 100 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; let total = 0;
+    req.on('data', chunk => {
+      total += chunk.length;
+      if (total > maxBytes) { req.destroy(); return reject(new Error('too large')); }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+const MEDIA_MIME = {
+  '.mp3':'audio/mpeg','.mp4':'video/mp4','.wav':'audio/wav','.ogg':'audio/ogg',
+  '.webm':'video/webm','.m4a':'audio/mp4','.aac':'audio/aac','.flac':'audio/flac',
+  '.mov':'video/quicktime','.mkv':'video/x-matroska','.avi':'video/x-msvideo',
+  '.opus':'audio/opus','.3gp':'video/3gpp'
+};
+
 // ─── HTTP server ──────────────────────────────────
-const httpServer = http.createServer((req, res) => {
-  let p = req.url.split('?')[0];
-  if (p === '/') p = '/index.html';
-  const fp = path.join(__dirname, p);
+const httpServer = http.createServer(async (req, res) => {
+  const p = req.url.split('?')[0];
+
+  // ── POST /upload ──
+  if (req.method === 'POST' && p === '/upload') {
+    try {
+      const name  = decodeURIComponent(req.headers['x-filename'] || 'file');
+      const ext   = path.extname(name).replace(/[^a-z0-9.]/gi,'').toLowerCase().slice(0,10) || '.bin';
+      const body  = await readBody(req);
+      const fname = newId() + ext;
+      fs.writeFileSync(path.join(UPLOADS_DIR, fname), body);
+      res.writeHead(200, {'Content-Type':'application/json'});
+      res.end(JSON.stringify({ url: '/uploads/' + fname }));
+    } catch(e) {
+      console.error('upload:', e.message);
+      res.writeHead(e.message === 'too large' ? 413 : 500); res.end(e.message);
+    }
+    return;
+  }
+
+  // ── GET /uploads/:file ──
+  if (req.method === 'GET' && p.startsWith('/uploads/')) {
+    const fname = path.basename(p);
+    const fp    = path.join(UPLOADS_DIR, fname);
+    if (!fp.startsWith(UPLOADS_DIR)) { res.writeHead(403); res.end(); return; }
+    fs.readFile(fp, (err, data) => {
+      if (err) { res.writeHead(404); res.end('Not found'); return; }
+      res.writeHead(200, {'Content-Type': MEDIA_MIME[path.extname(fname)] || 'application/octet-stream'});
+      res.end(data);
+    });
+    return;
+  }
+
+  // ── Static files ──
+  let sp = p === '/' ? '/index.html' : p;
+  const fp = path.join(__dirname, sp);
   if (!fp.startsWith(__dirname)) { res.writeHead(403); res.end(); return; }
   fs.readFile(fp, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const mime = {'.html':'text/html','.js':'application/javascript','.css':'text/css'};
-    res.writeHead(200, { 'Content-Type': mime[path.extname(fp)] || 'text/plain' });
+    res.writeHead(200, {'Content-Type': mime[path.extname(fp)] || 'text/plain'});
     res.end(data);
   });
 });

@@ -756,9 +756,10 @@ function bubbleHtml(m,isGroup){
     let med; try{med=JSON.parse(m.media);}catch(e){med=null;}
     if(med){
       const nm=esc(med.name||'файл');
+      const src=med.url||med.data||'';
       mbody=med.type==='video'
-        ?`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${med.data}" controls preload="metadata" playsinline></video></div>`
-        :`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${med.data}" controls preload="metadata"></audio></div>`;
+        ?`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${src}" controls preload="metadata" playsinline></video></div>`
+        :`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${src}" controls preload="metadata"></audio></div>`;
     } else { mbody=`<div class="mtext">${esc(m.text)||'медиафайл'}</div>`; }
   } else {
     mbody=`<div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>`;
@@ -966,20 +967,30 @@ function sendSticker(inp){
   inp.value='';
 }
 
-function sendMedia(inp){
+async function sendMedia(inp){
   const file=inp.files[0]; if(!file||!openChatId) return;
   const isVideo=file.type.startsWith('video/');
   const isAudio=file.type.startsWith('audio/');
   if(!isVideo&&!isAudio) return;
   const limit=isVideo?50:20;
   if(file.size>limit*1024*1024) return alert(`Файл слишком большой (макс. ${limit} МБ)`);
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const media=JSON.stringify({type:isVideo?'video':'audio',name:file.name,data:e.target.result});
-    emit('send_message',{chatId:openChatId,text:'',media});
-  };
-  reader.readAsDataURL(file);
   inp.value='';
+  const btn=document.querySelector('.sbtn');
+  const prev=btn.innerHTML; btn.innerHTML='⏳'; btn.disabled=true;
+  try {
+    const resp=await fetch('/upload',{
+      method:'POST',
+      headers:{'Content-Type':file.type,'X-Filename':encodeURIComponent(file.name)},
+      body:file
+    });
+    if(!resp.ok) throw new Error(await resp.text());
+    const {url}=await resp.json();
+    emit('send_message',{chatId:openChatId,text:'',media:JSON.stringify({type:isVideo?'video':'audio',name:file.name,url})});
+  } catch(e) {
+    alert('Ошибка загрузки: '+e.message);
+  } finally {
+    btn.innerHTML=prev; btn.disabled=false;
+  }
 }
 
 function viewSticker(msgId){

@@ -1429,6 +1429,7 @@ function saveBannerDraw(){
   const canvas=document.getElementById('upc-canvas');
   const dataUrl=canvas.toDataURL('image/jpeg',0.8);
   emit('update_profile',{banner:dataUrl});
+  if(me&&bannerViewUserId===me.id){me.banner=dataUrl;S.users[me.id].banner=dataUrl;}
   cancelBannerDraw();
 }
 function cancelBannerDraw(){

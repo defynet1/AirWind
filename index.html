@@ -169,6 +169,63 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .dbtn{width:100%;padding:10px;border-radius:9px;border:1px solid rgba(255,92,106,.3);background:rgba(255,92,106,.07);color:var(--red);font-family:var(--font);font-size:14px;font-weight:500;cursor:pointer;transition:.12s;margin-top:7px}
 .dbtn:hover{background:rgba(255,92,106,.14)}
 .hidden{display:none!important}
+
+/* ── SIDEBAR TABS ── */
+.stabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--br)}
+.stab{flex:1;padding:7px 0;border:none;background:transparent;color:var(--tx2);font-family:var(--font);font-size:13px;font-weight:500;border-radius:7px;cursor:pointer;transition:.15s}
+.stab.on{background:var(--sf2);color:var(--tx)}
+
+/* ── FEED AREA ── */
+#farea{flex:1;display:none;overflow-y:auto;background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(91,140,255,.04),transparent 60%)}
+#farea.on{display:flex;flex-direction:column;align-items:center}
+#farea::-webkit-scrollbar{width:3px}
+#farea::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+.feed{width:100%;max-width:560px;padding:20px 0 40px;display:flex;flex-direction:column;gap:18px}
+.feed-hdr{width:100%;max-width:560px;padding:16px 0 4px;display:flex;align-items:center;justify-content:space-between}
+.feed-hdr-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
+.new-post-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;background:linear-gradient(135deg,var(--ac),var(--ac2));border:none;border-radius:9px;color:#fff;font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.new-post-btn:hover{opacity:.9;transform:translateY(-1px)}
+.post-card{background:var(--sf);border:1px solid var(--br);border-radius:16px;overflow:hidden;animation:pop .2s cubic-bezier(.34,1.56,.64,1)}
+.post-ph{display:flex;align-items:center;gap:10px;padding:13px 16px}
+.post-img{width:100%;max-height:540px;object-fit:cover;display:block;cursor:pointer}
+.post-body{padding:10px 16px 14px}
+.post-actions{display:flex;align-items:center;gap:2px;margin-bottom:8px}
+.pabtn{background:none;border:none;cursor:pointer;font-size:22px;padding:4px 6px;border-radius:8px;transition:.15s;line-height:1}
+.pabtn:hover{background:var(--sf2)}
+.pabtn.liked{animation:heartpop .25s cubic-bezier(.34,1.56,.64,1)}
+@keyframes heartpop{0%{transform:scale(1)}50%{transform:scale(1.35)}100%{transform:scale(1)}}
+.post-likes{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:5px}
+.post-cap{font-size:14px;line-height:1.5;word-break:break-word}
+.post-cap strong{font-weight:600}
+.post-clink{font-size:13px;color:var(--tx2);cursor:pointer;margin-top:5px;display:inline-block}
+.post-clink:hover{color:var(--tx)}
+.post-ts{font-size:11px;color:var(--tx3);font-family:var(--mono);margin-top:6px}
+.feed-more{text-align:center;padding:4px 0}
+.feed-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--tx3);gap:12px}
+.feed-empty-ico{font-size:40px;opacity:.3}
+
+/* ── CREATE POST MODAL ── */
+.cpm-dz{border:2px dashed var(--br);border-radius:12px;min-height:180px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.2s;overflow:hidden;position:relative;margin-bottom:14px}
+.cpm-dz:hover{border-color:var(--ac);background:rgba(91,140,255,.04)}
+.cpm-dz img{width:100%;max-height:320px;object-fit:contain;display:block}
+.cpm-hint{color:var(--tx3);font-size:14px;text-align:center;padding:20px;pointer-events:none}
+.cpm-cap{width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:9px;padding:9px 13px;color:var(--tx);font-family:var(--font);font-size:14px;outline:none;resize:none;transition:.2s;margin-bottom:4px}
+.cpm-cap:focus{border-color:var(--ac)}
+.cpm-cap::placeholder{color:var(--tx3)}
+
+/* ── COMMENTS MODAL ── */
+.cmm-list{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.cmm-list::-webkit-scrollbar{width:3px}
+.cmm-list::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+.cmrow{display:flex;gap:8px;align-items:flex-start}
+.cmtext{flex:1;min-width:0}
+.cmname{font-size:13px;font-weight:600;margin-bottom:2px}
+.cmbody{font-size:14px;word-break:break-word;line-height:1.4}
+.cmts{font-size:10px;color:var(--tx3);font-family:var(--mono);margin-top:2px}
+.cminrow{display:flex;gap:8px;align-items:center}
+.cminput{flex:1;background:var(--sf2);border:1px solid var(--br);border-radius:9px;padding:9px 13px;color:var(--tx);font-family:var(--font);font-size:14px;outline:none;transition:.2s}
+.cminput:focus{border-color:var(--ac)}
+.cminput::placeholder{color:var(--tx3)}
 </style>
 </head>
 <body>
@@ -207,8 +264,17 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
       <button class="ibtn" title="Новый чат" onclick="openNewChat()">✏️</button>
       <button class="ibtn" title="Профиль" onclick="openProfile()">👤</button>
     </div>
-    <div class="swrap"><input class="sinput" placeholder="🔍  Поиск..." oninput="filterChats(this.value)" id="search-input"></div>
-    <div id="clist"></div>
+    <div class="stabs">
+      <button class="stab on" id="stab-chats" onclick="switchSideTab('chats')">💬 Чаты</button>
+      <button class="stab" id="stab-feed" onclick="switchSideTab('feed')">📸 Лента</button>
+    </div>
+    <div id="chats-panel">
+      <div class="swrap"><input class="sinput" placeholder="🔍  Поиск..." oninput="filterChats(this.value)" id="search-input"></div>
+      <div id="clist"></div>
+    </div>
+    <div id="feed-sidebar" class="hidden">
+      <div style="padding:16px 14px 8px;font-size:12px;color:var(--tx3)">Переключитесь на ленту →</div>
+    </div>
   </div>
 
   <div id="carea">
@@ -251,6 +317,49 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
       </div>
     </div>
   </div>
+
+  <!-- Feed Area -->
+  <div id="farea">
+    <div class="feed-hdr">
+      <div class="feed-hdr-title">Лента</div>
+      <button class="new-post-btn" onclick="openPostModal()">📷 Новая запись</button>
+    </div>
+    <div class="feed" id="feed-list"></div>
+    <div class="feed-more">
+      <button id="feed-more-btn" class="mbtn g" style="width:180px;display:none" onclick="loadMoreFeed()">Загрузить ещё</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Post Modal -->
+<div class="mo" id="cpm">
+  <div class="md" style="width:440px">
+    <button class="mclose" onclick="CM('cpm');pendingPostMedia=null">✕</button>
+    <div class="mt">Новая запись</div>
+    <div class="cpm-dz" id="cpm-dz" onclick="document.getElementById('postfile').click()">
+      <div class="cpm-hint" id="cpm-hint">📷 Нажмите чтобы выбрать фото</div>
+    </div>
+    <input type="file" id="postfile" accept="image/*" style="display:none" onchange="pickPostPhoto(this)">
+    <textarea id="cpm-cap" class="cpm-cap" placeholder="Подпись..." rows="3"></textarea>
+    <div class="mact">
+      <button class="mbtn g" onclick="CM('cpm');pendingPostMedia=null">Отмена</button>
+      <button class="mbtn p" id="cpm-submit" onclick="submitPost()" disabled>Опубликовать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Comments Modal -->
+<div class="mo" id="cmm">
+  <div class="md" style="width:460px">
+    <button class="mclose" onclick="CM('cmm')">✕</button>
+    <div class="mt">Комментарии</div>
+    <div class="cmm-list" id="cmm-list"></div>
+    <div class="cminrow">
+      <input id="cmm-inp" class="cminput" placeholder="Написать комментарий..."
+        onkeydown="if(event.key==='Enter')submitComment()">
+      <button class="sbtn" onclick="submitComment()">➤</button>
+    </div>
+  </div>
 </div>
 
 <!-- New Chat Modal -->
@@ -291,7 +400,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 //  STATE
 // ════════════════════════════════════
 let ws=null, me=null, openChatId=null, selUsers=[], editMsgId=null, pendingAvatarUrl=null;
-const S={users:{},chats:{},msgs:{},unread:{},online:new Set()};
+let pendingPostMedia=null, currentCommentPostId=null, sideTab='chats';
+const S={users:{},chats:{},msgs:{},unread:{},online:new Set(),feed:[],comments:{}};
 
 // ════════════════════════════════════
 //  WS
@@ -412,6 +522,37 @@ function handle({type,payload}){
       const tb=document.getElementById('typing-bar');
       if(tb)tb.textContent=names.length?names.join(', ')+(names.length===1?' печатает...':' печатают...'):'';
       break;}
+
+    case 'feed':
+      if(payload.reset) S.feed=payload.posts;
+      else S.feed.push(...payload.posts);
+      renderFeed(payload.reset);
+      document.getElementById('feed-more-btn').style.display=payload.posts.length===20?'inline-block':'none';
+      break;
+
+    case 'new_post':
+      S.feed.unshift(payload.post);
+      prependPost(payload.post);
+      break;
+
+    case 'post_liked':{
+      const p=S.feed.find(x=>x.id===payload.postId);
+      if(p){p.likes=payload.likes;updatePostLikes(payload.postId,payload.likes);}
+      break;}
+
+    case 'new_comment':{
+      const cm=payload.comment;
+      const p2=S.feed.find(x=>x.id===cm.postId);
+      if(p2) p2.commentCount=(p2.commentCount||0)+1;
+      updatePostCommentCount(cm.postId, p2?.commentCount||1);
+      if(S.comments[cm.postId]) S.comments[cm.postId].push(cm);
+      if(currentCommentPostId===cm.postId) appendComment(cm);
+      break;}
+
+    case 'comments':
+      S.comments[payload.postId]=payload.comments;
+      renderComments(payload.postId);
+      break;
   }
 }
 
@@ -727,6 +868,196 @@ function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;
 function v(id){return(document.getElementById(id)||{}).value||'';}
 
 // enter keys
+// ════════════════════════════════════
+//  FEED
+// ════════════════════════════════════
+function switchSideTab(tab){
+  sideTab=tab;
+  document.getElementById('stab-chats').classList.toggle('on',tab==='chats');
+  document.getElementById('stab-feed').classList.toggle('on',tab==='feed');
+  document.getElementById('chats-panel').classList.toggle('hidden',tab!=='chats');
+  document.getElementById('feed-sidebar').classList.toggle('hidden',tab!=='feed');
+  document.getElementById('carea').style.display=tab==='chats'?'':'none';
+  document.getElementById('farea').classList.toggle('on',tab==='feed');
+  if(tab==='feed'&&S.feed.length===0) emit('load_feed',{});
+}
+
+function postCardHtml(p){
+  const u=S.users[p.userId]||{};
+  const liked=me&&p.likes.includes(me.id);
+  const likesText=p.likes.length===0?'':p.likes.length===1?'1 отметка «нравится»':`${p.likes.length} отметок «нравится»`;
+  const commText=p.commentCount>0?(p.commentCount===1?'1 комментарий':`${p.commentCount} комментариев`):'Написать комментарий';
+  return `<div class="post-card" id="post_${p.id}">
+    <div class="post-ph">
+      <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">${esc(u.displayName||'?')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
+    </div>
+    <img class="post-img" src="${p.mediaData}" loading="lazy" onclick="openImageFull('${p.id}')">
+    <div class="post-body">
+      <div class="post-actions">
+        <button class="pabtn${liked?' liked':''}" id="like_${p.id}" onclick="likePost('${p.id}')" title="Нравится">${liked?'❤️':'🤍'}</button>
+        <button class="pabtn" onclick="openComments('${p.id}')" title="Комментарии">💬</button>
+      </div>
+      ${likesText?`<div class="post-likes" id="likes_${p.id}">${esc(likesText)}</div>`:`<div class="post-likes" id="likes_${p.id}" style="display:none"></div>`}
+      ${p.caption?`<div class="post-cap"><strong>${esc(u.displayName||'')}</strong> ${esc(p.caption)}</div>`:''}
+      <div class="post-clink" id="ccount_${p.id}" onclick="openComments('${p.id}')">${commText}</div>
+      <div class="post-ts">${fts(p.ts)}</div>
+    </div>
+  </div>`;
+}
+
+function renderFeed(reset){
+  const el=document.getElementById('feed-list');
+  if(reset||!el.children.length){
+    if(S.feed.length===0){
+      el.innerHTML=`<div class="feed-empty"><div class="feed-empty-ico">📸</div><div>Лента пока пустая</div><div style="font-size:12px">Будьте первым — поделитесь фото!</div></div>`;
+    } else {
+      el.innerHTML=S.feed.map(postCardHtml).join('');
+    }
+  } else {
+    S.feed.slice(-(S.feed.length - el.querySelectorAll('.post-card').length)).forEach(p=>{
+      el.insertAdjacentHTML('beforeend',postCardHtml(p));
+    });
+  }
+}
+
+function prependPost(p){
+  const el=document.getElementById('feed-list');
+  const empty=el.querySelector('.feed-empty');
+  if(empty) empty.remove();
+  el.insertAdjacentHTML('afterbegin',postCardHtml(p));
+}
+
+function updatePostLikes(postId, likes){
+  const btn=document.getElementById('like_'+postId);
+  const lel=document.getElementById('likes_'+postId);
+  if(!btn||!lel) return;
+  const liked=me&&likes.includes(me.id);
+  btn.textContent=liked?'❤️':'🤍';
+  btn.classList.toggle('liked',liked);
+  const n=likes.length;
+  if(n===0){lel.style.display='none';lel.textContent='';}
+  else{lel.style.display='';lel.textContent=n===1?'1 отметка «нравится»':`${n} отметок «нравится»`;}
+}
+
+function updatePostCommentCount(postId, count){
+  const el=document.getElementById('ccount_'+postId);
+  if(!el) return;
+  el.textContent=count>0?(count===1?'1 комментарий':`${count} комментариев`):'Написать комментарий';
+}
+
+function loadMoreFeed(){
+  const oldest=S.feed[S.feed.length-1];
+  if(oldest) emit('load_feed',{before:oldest.ts});
+}
+
+function likePost(postId){emit('like_post',{postId});}
+
+function openComments(postId){
+  currentCommentPostId=postId;
+  document.getElementById('cmm-list').innerHTML='<div style="color:var(--tx3);font-size:13px;text-align:center;padding:20px">Загрузка...</div>';
+  document.getElementById('cmm-inp').value='';
+  OM('cmm');
+  if(S.comments[postId]) renderComments(postId);
+  else emit('load_comments',{postId});
+}
+
+function renderComments(postId){
+  const list=S.comments[postId]||[];
+  const el=document.getElementById('cmm-list');
+  if(!el) return;
+  if(list.length===0){el.innerHTML='<div style="color:var(--tx3);font-size:13px;text-align:center;padding:20px">Комментариев пока нет</div>';return;}
+  el.innerHTML=list.map(c=>{
+    const u=S.users[c.userId]||{};
+    return `<div class="cmrow">
+      <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
+      <div class="cmtext">
+        <div class="cmname">${esc(u.displayName||'?')}</div>
+        <div class="cmbody">${esc(c.text)}</div>
+        <div class="cmts">${fts(c.ts)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+function appendComment(c){
+  const el=document.getElementById('cmm-list');
+  if(!el) return;
+  const empty=el.querySelector('div[style*="padding:20px"]');
+  if(empty) empty.remove();
+  const u=S.users[c.userId]||{};
+  el.insertAdjacentHTML('beforeend',`<div class="cmrow">
+    <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
+    <div class="cmtext">
+      <div class="cmname">${esc(u.displayName||'?')}</div>
+      <div class="cmbody">${esc(c.text)}</div>
+      <div class="cmts">${fts(c.ts)}</div>
+    </div>
+  </div>`);
+  el.scrollTop=el.scrollHeight;
+}
+
+function submitComment(){
+  const inp=document.getElementById('cmm-inp');
+  const text=inp.value.trim();
+  if(!text||!currentCommentPostId) return;
+  emit('add_comment',{postId:currentCommentPostId,text});
+  inp.value='';
+}
+
+function openPostModal(){
+  pendingPostMedia=null;
+  document.getElementById('cpm-dz').innerHTML='<div class="cpm-hint">📷 Нажмите чтобы выбрать фото</div>';
+  document.getElementById('cpm-cap').value='';
+  document.getElementById('cpm-submit').disabled=true;
+  OM('cpm');
+}
+
+function pickPostPhoto(inp){
+  const file=inp.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=1200,maxH=1200;
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      pendingPostMedia=c.toDataURL('image/jpeg',0.82);
+      document.getElementById('cpm-dz').innerHTML=`<img src="${pendingPostMedia}" style="width:100%;max-height:320px;object-fit:contain;display:block;border-radius:8px">`;
+      document.getElementById('cpm-submit').disabled=false;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+
+function submitPost(){
+  if(!pendingPostMedia) return;
+  emit('create_post',{mediaData:pendingPostMedia,caption:document.getElementById('cpm-cap').value.trim()});
+  pendingPostMedia=null;
+  CM('cpm');
+  if(sideTab!=='feed') switchSideTab('feed');
+}
+
+function openImageFull(postId){
+  const p=S.feed.find(x=>x.id===postId); if(!p) return;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  ov.innerHTML=`<img src="${p.mediaData}" style="max-width:90vw;max-height:90vh;border-radius:8px;object-fit:contain">`;
+  ov.onclick=()=>ov.remove();
+  document.body.appendChild(ov);
+}
+
+function fts(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
+}
+
 ['lu','lp'].forEach(id=>document.getElementById(id)?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();}));
 ['rn','ru','rp','rp2'].forEach(id=>document.getElementById(id)?.addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();}));
 

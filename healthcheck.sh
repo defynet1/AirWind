@@ -7,7 +7,7 @@ echo "▶ Запускаем сервер..."
 node server.js &
 SERVER_PID=$!
 
-sleep 2
+sleep 4
 
 echo "▶ Проверяем HTTP..."
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT/)

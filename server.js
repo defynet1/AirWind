@@ -59,6 +59,21 @@ async function initDB() {
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS posts (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
+    media_data TEXT NOT NULL, caption TEXT DEFAULT '',
+    ts BIGINT NOT NULL
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS post_likes (
+    post_id TEXT NOT NULL, user_id TEXT NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS post_comments (
+    id TEXT PRIMARY KEY, post_id TEXT NOT NULL,
+    user_id TEXT NOT NULL, text TEXT NOT NULL,
+    ts BIGINT NOT NULL
+  )`);
+
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
     await pool.query(`INSERT INTO chats(id,is_group,name,created_at) VALUES('__global__',1,'Общий чат',$1)`, [Date.now()]);
@@ -178,6 +193,33 @@ async function deleteMsg(msgId, userId) {
   return m;
 }
 
+// ─── Post ops ─────────────────────────────────────
+async function getFeed(limit = 20, before = null) {
+  const p = before ? [before, limit] : [Date.now() + 1, limit];
+  const rows = await dbAll(`
+    SELECT p.*, STRING_AGG(DISTINCT pl.user_id, ',') as likes,
+      COUNT(DISTINCT pc.id)::int as comment_count
+    FROM posts p
+    LEFT JOIN post_likes pl ON p.id = pl.post_id
+    LEFT JOIN post_comments pc ON p.id = pc.post_id
+    WHERE p.ts < $1
+    GROUP BY p.id ORDER BY p.ts DESC LIMIT $2
+  `, p);
+  return rows.map(toPost);
+}
+function toPost(p) {
+  return {
+    id: p.id, userId: p.user_id,
+    mediaData: p.media_data, caption: p.caption,
+    ts: Number(p.ts),
+    likes: p.likes ? p.likes.split(',').filter(Boolean) : [],
+    commentCount: Number(p.comment_count || 0)
+  };
+}
+async function getPostComments(postId) {
+  return dbAll(`SELECT * FROM post_comments WHERE post_id=$1 ORDER BY ts ASC`, [postId]);
+}
+
 // ─── HTTP server ──────────────────────────────────
 const httpServer = http.createServer((req, res) => {
   let p = req.url.split('?')[0];
@@ -231,6 +273,7 @@ wss.on('connection', ws => {
       send(ws,{type:'online',payload:{userIds:onlineIds()}});
       bcastAll({type:'user_joined',payload:{user:safe(user)}},ws);
       bcastAll({type:'online',payload:{userIds:onlineIds()}});
+      send(ws,{type:'feed',payload:{posts:await getFeed(20),reset:true}});
       console.log('register:', username);
 
     } else if (type === 'login') {
@@ -249,6 +292,7 @@ wss.on('connection', ws => {
       send(ws,{type:'users',payload:{users:(await getAllUsers()).map(safe)}});
       send(ws,{type:'online',payload:{userIds:onlineIds()}});
       bcastAll({type:'online',payload:{userIds:onlineIds()}},ws);
+      send(ws,{type:'feed',payload:{posts:await getFeed(20),reset:true}});
       console.log('login:', username);
 
     } else if (type === 'send_message') {
@@ -311,6 +355,47 @@ wss.on('connection', ws => {
       const u = safe(await getUserById(inf.userId));
       send(ws,{type:'profile_updated',payload:{user:u}});
       bcastAll({type:'user_updated',payload:{user:u}},ws);
+
+    } else if (type === 'load_feed') {
+      if (!inf) return;
+      const posts = await getFeed(20, payload.before||null);
+      send(ws,{type:'feed',payload:{posts,reset:!payload.before}});
+
+    } else if (type === 'create_post') {
+      if (!inf) return;
+      const { mediaData, caption } = payload;
+      if (!mediaData) return;
+      const id = newId(), ts = Date.now();
+      await dbRun(`INSERT INTO posts(id,user_id,media_data,caption,ts) VALUES($1,$2,$3,$4,$5)`,
+        [id, inf.userId, mediaData, caption||'', ts]);
+      const post = (await getFeed(1, ts+1)).find(p=>p.id===id) || {id,userId:inf.userId,mediaData,caption:caption||'',ts,likes:[],commentCount:0};
+      bcastAll({type:'new_post',payload:{post}});
+
+    } else if (type === 'like_post') {
+      if (!inf) return;
+      const { postId } = payload;
+      const existing = await dbGet(`SELECT 1 FROM post_likes WHERE post_id=$1 AND user_id=$2`,[postId,inf.userId]);
+      if (existing) {
+        await dbRun(`DELETE FROM post_likes WHERE post_id=$1 AND user_id=$2`,[postId,inf.userId]);
+      } else {
+        await dbRun(`INSERT INTO post_likes(post_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`,[postId,inf.userId]);
+      }
+      const likes = (await dbAll(`SELECT user_id FROM post_likes WHERE post_id=$1`,[postId])).map(r=>r.user_id);
+      bcastAll({type:'post_liked',payload:{postId,likes}});
+
+    } else if (type === 'add_comment') {
+      if (!inf) return;
+      const { postId, text } = payload;
+      if (!text||!text.trim()) return;
+      const id = newId(), ts = Date.now();
+      await dbRun(`INSERT INTO post_comments(id,post_id,user_id,text,ts) VALUES($1,$2,$3,$4,$5)`,
+        [id, postId, inf.userId, text.trim(), ts]);
+      bcastAll({type:'new_comment',payload:{comment:{id,postId,userId:inf.userId,text:text.trim(),ts}}});
+
+    } else if (type === 'load_comments') {
+      if (!inf) return;
+      const rows = await getPostComments(payload.postId);
+      send(ws,{type:'comments',payload:{postId:payload.postId,comments:rows.map(c=>({id:c.id,postId:c.post_id,userId:c.user_id,text:c.text,ts:Number(c.ts)}))}});
     }
   });
 

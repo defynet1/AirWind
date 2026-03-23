@@ -507,6 +507,28 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Edit Channel Modal -->
+<div class="mo" id="ecm">
+  <div class="md">
+    <button class="mclose" onclick="CM('ecm')">✕</button>
+    <div class="mt">Редактировать канал</div>
+    <div class="pavr">
+      <div id="ec-av" class="pav" style="border-radius:14px;cursor:pointer" onclick="document.getElementById('ec-avfile').click()"></div>
+      <input type="file" id="ec-avfile" accept="image/*" style="display:none" onchange="pickChanAvatar(this)">
+      <div>
+        <div style="font-size:12px;color:var(--tx2);margin-bottom:8px">Цвет аватара</div>
+        <div id="ec-colors" style="display:flex;gap:7px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="psec"><label>Название</label><input id="ec-name" maxlength="64"></div>
+    <div class="psec"><label>Описание</label><input id="ec-desc"></div>
+    <div class="mact">
+      <button class="mbtn g" onclick="CM('ecm')">Отмена</button>
+      <button class="mbtn p" onclick="saveEditChannel()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <!-- Create Channel Modal -->
 <div class="mo" id="ccm">
   <div class="md">
@@ -1482,7 +1504,7 @@ function doSearch(q){
   if(channels.length){
     html+=`<div class="search-section">Каналы</div>`;
     html+=channels.slice(0,8).map(c=>`<div class="search-row" onclick="searchOpenChannel('${c.id}')">
-      <div style="background:${c.avatarColor};border-radius:12px;width:40px;height:40px;font-size:17px;font-weight:700;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center">${chanInitials(c.name)}</div>
+      <div style="${chanAvStyle(c,40)}">${chanAvInner(c)}</div>
       <div class="search-row-info">
         <div class="search-row-name">${esc(c.name)}</div>
         <div class="search-row-sub">${c.memberCount} подписчик${memberSuffix(c.memberCount)}${c.description?' · '+esc(c.description.slice(0,40)):''}</div>
@@ -1524,9 +1546,8 @@ function renderChannelList(){
   }
   el.innerHTML=channels.map(c=>{
     const on=openChannelId===c.id;
-    const av=`background:${c.avatarColor}`;
     return `<div class="clist-item${on?' on':''}" onclick="openChannel('${c.id}')">
-      <div class="ch-av" style="${av};border-radius:14px;width:44px;height:44px;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center">${chanInitials(c.name)}</div>
+      <div style="${chanAvStyle(c)}">${chanAvInner(c)}</div>
       <div class="cmeta">
         <div class="cnrow">
           <div class="cname">${esc(c.name)}${c.isOwner?`<span class="ch-badge">Владелец</span>`:''}</div>
@@ -1558,16 +1579,23 @@ function openChannel(id){
   renderChannelList();
 }
 
+function chanAvStyle(ch,size=44){
+  const base=`border-radius:14px;width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;font-weight:700;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;background-size:cover;background-position:center`;
+  if(ch.avatarUrl) return base+`;background-image:url(${ch.avatarUrl});background-color:${ch.avatarColor}`;
+  return base+`;background:${ch.avatarColor}`;
+}
+function chanAvInner(ch){ return ch.avatarUrl?'':chanInitials(ch.name); }
+
 function renderChannelHeader(ch){
   const av=document.getElementById('ch-hdr-av');
-  av.style.cssText=`background:${ch.avatarColor};border-radius:14px;width:44px;height:44px;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center`;
-  av.textContent=chanInitials(ch.name);
+  av.style.cssText=chanAvStyle(ch);
+  av.textContent=chanAvInner(ch);
   document.getElementById('ch-hdr-name').textContent=ch.name;
   document.getElementById('ch-hdr-desc').textContent=
     (ch.description||'')+' · '+ch.memberCount+' подписчик'+memberSuffix(ch.memberCount);
   const btns=document.getElementById('ch-hdr-btns');
   if(ch.isOwner){
-    btns.innerHTML='';
+    btns.innerHTML=`<button class="ibtn" title="Редактировать канал" onclick="openEditChannel('${ch.id}')">✏️</button>`;
   } else if(ch.isMember){
     btns.innerHTML=`<button class="ch-leave-btn" onclick="leaveChannel('${ch.id}')">Отписаться</button>`;
   } else {
@@ -1668,6 +1696,70 @@ function leaveChannel(id){ if(confirm('Отписаться от канала?')
 function deleteChanPost(id){ if(confirm('Удалить пост?')) emit('delete_channel_post',{postId:id}); }
 
 function openCreateChannel(){ OM('ccm'); document.getElementById('cc-name').value=''; document.getElementById('cc-desc').value=''; }
+
+let editingChannelId=null, pendingChanAvatarUrl=null, pendingChanColor=null;
+const CHAN_COLORS=['#6366f1','#8b5cf6','#ec4899','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#ef4444','#64748b'];
+
+function openEditChannel(id){
+  const ch=S.channels[id]; if(!ch||!ch.isOwner) return;
+  editingChannelId=id;
+  pendingChanAvatarUrl=ch.avatarUrl||null;
+  pendingChanColor=ch.avatarColor||CHAN_COLORS[0];
+  document.getElementById('ec-name').value=ch.name;
+  document.getElementById('ec-desc').value=ch.description||'';
+  // render avatar preview
+  renderEcAvatar(ch);
+  // render color swatches
+  const el=document.getElementById('ec-colors');
+  el.innerHTML=CHAN_COLORS.map(c=>`<div onclick="selectChanColor('${c}')" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===pendingChanColor?'#fff':'transparent'};transition:.15s" id="cc_${c.slice(1)}"></div>`).join('');
+  OM('ecm');
+}
+function renderEcAvatar(ch){
+  const av=document.getElementById('ec-av');
+  const url=pendingChanAvatarUrl||ch?.avatarUrl||'';
+  const color=pendingChanColor||ch?.avatarColor||CHAN_COLORS[0];
+  av.style.cssText=`border-radius:14px;width:56px;height:56px;font-size:22px;font-weight:700;color:#fff;background:${color};background-size:cover;background-position:center;${url?'background-image:url('+url+');':''}position:relative;overflow:hidden`;
+  av.textContent=url?'':(ch?chanInitials(ch.name):'#');
+}
+function selectChanColor(color){
+  pendingChanColor=color;
+  document.querySelectorAll('#ec-colors div').forEach(el=>{
+    const c='#'+el.id.slice(3);
+    el.style.borderColor=c===color?'#fff':'transparent';
+  });
+  const ch=S.channels[editingChannelId];
+  if(!pendingChanAvatarUrl) renderEcAvatar(ch);
+}
+function pickChanAvatar(inp){
+  const file=inp.files[0]; if(!file) return;
+  if(file.size>5*1024*1024) return alert('Изображение слишком большое (макс. 5 МБ)');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas'); c.width=c.height=200;
+      c.getContext('2d').drawImage(img,0,0,200,200);
+      pendingChanAvatarUrl=c.toDataURL('image/jpeg',0.85);
+      renderEcAvatar(S.channels[editingChannelId]);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+function saveEditChannel(){
+  if(!editingChannelId) return;
+  const name=document.getElementById('ec-name').value.trim();
+  if(!name) return alert('Введите название');
+  emit('edit_channel',{
+    channelId:editingChannelId,
+    name,
+    description:document.getElementById('ec-desc').value.trim(),
+    avatarColor:pendingChanColor,
+    avatarUrl:pendingChanAvatarUrl||''
+  });
+  CM('ecm');
+}
 function submitCreateChannel(){
   const name=document.getElementById('cc-name').value.trim();
   if(!name) return alert('Введите название');

@@ -88,6 +88,7 @@ async function initDB() {
     description TEXT DEFAULT '', owner_id TEXT NOT NULL,
     avatar_color TEXT DEFAULT '#6366f1', created_at BIGINT DEFAULT 0
   )`);
+  await pool.query(`ALTER TABLE channels ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`);
   await pool.query(`CREATE TABLE IF NOT EXISTS channel_members (
     channel_id TEXT NOT NULL, user_id TEXT NOT NULL,
     role TEXT DEFAULT 'member', joined_at BIGINT DEFAULT 0,
@@ -337,6 +338,7 @@ async function getChannelPosts(channelId, limit = 60, before = null) {
 function toChan(c) {
   return { id: c.id, name: c.name, description: c.description || '',
     ownerId: c.owner_id, avatarColor: c.avatar_color || '#6366f1',
+    avatarUrl: c.avatar_url || '',
     memberCount: Number(c.member_count || 0), isMember: !!Number(c.is_member || 0),
     isOwner: (c.my_role || '') === 'owner', createdAt: Number(c.created_at) };
 }
@@ -696,6 +698,18 @@ wss.on('connection', ws => {
       const rm = await getChanPostReactionsMap([payload.postId]);
       await bcastChannel(cpRow.channel_id, {type:'channel_post_reacted',
         payload:{postId:payload.postId, channelId:cpRow.channel_id, reactions:rm[payload.postId]||{}}});
+
+    } else if (type === 'edit_channel') {
+      if (!inf) return;
+      const { channelId, name, description, avatarColor, avatarUrl } = payload;
+      const own = await dbGet(`SELECT owner_id FROM channels WHERE id=$1`, [channelId]);
+      if (!own || own.owner_id !== inf.userId) return;
+      if (name?.trim()) await dbRun(`UPDATE channels SET name=$1 WHERE id=$2`, [name.trim(), channelId]);
+      if (description !== undefined) await dbRun(`UPDATE channels SET description=$1 WHERE id=$2`, [description||'', channelId]);
+      if (avatarColor) await dbRun(`UPDATE channels SET avatar_color=$1 WHERE id=$2`, [avatarColor, channelId]);
+      if (avatarUrl !== undefined) await dbRun(`UPDATE channels SET avatar_url=$1 WHERE id=$2`, [avatarUrl||'', channelId]);
+      const updated = await getChannelForUser(channelId, inf.userId);
+      if (updated) bcastAll({ type: 'channel_updated', payload: { channel: updated } });
 
     } else if (type === 'delete_channel_post') {
       if (!inf) return;

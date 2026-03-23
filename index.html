@@ -320,6 +320,22 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 @keyframes frame-electro{0%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}25%{box-shadow:0 0 0 2px #67e8f9,0 0 4px rgba(103,232,249,.3)}50%{box-shadow:0 0 0 4px #06b6d4,0 0 20px rgba(6,182,212,.9)}75%{box-shadow:0 0 0 2px #67e8f9,0 0 6px rgba(103,232,249,.4)}100%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}}
 @keyframes frame-lava{0%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}33%{box-shadow:0 0 0 3px #f97316,0 0 18px rgba(249,115,22,.8)}66%{box-shadow:0 0 0 3px #fbbf24,0 0 14px rgba(251,191,36,.7)}100%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}}
 @keyframes frame-cosmos{0%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}25%{box-shadow:0 0 0 3px #c084fc,0 0 20px rgba(192,132,252,.8)}50%{box-shadow:0 0 0 3px #f0abfc,0 0 24px rgba(240,171,252,.9)}75%{box-shadow:0 0 0 3px #67e8f9,0 0 20px rgba(103,232,249,.8)}100%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}}
+/* Verified badge */
+.verified-badge{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:3px;vertical-align:middle;flex-shrink:0}
+.verified-badge svg{width:16px;height:16px}
+/* Admin Panel */
+#adm .md{max-width:440px}
+.adm-list{max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.adm-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--sf2)}
+.adm-row .av{width:36px;height:36px;font-size:13px}
+.adm-info{flex:1;min-width:0}
+.adm-name{font-size:14px;font-weight:500;display:flex;align-items:center;gap:2px}
+.adm-uname{font-size:12px;color:var(--tx2)}
+.adm-btn{padding:5px 12px;border:none;border-radius:8px;font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;transition:.15s}
+.adm-btn.give{background:rgba(52,211,153,.15);color:var(--green)}
+.adm-btn.give:hover{background:rgba(52,211,153,.25)}
+.adm-btn.take{background:rgba(248,113,113,.12);color:var(--red)}
+.adm-btn.take:hover{background:rgba(248,113,113,.22)}
 /* User Profile Card */
 #upc .md{padding:0;overflow:hidden;width:380px;border-radius:18px}
 .upc-banner{height:130px;position:relative;background:linear-gradient(135deg,var(--ac),var(--ac2));overflow:hidden}
@@ -614,6 +630,16 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Admin Panel -->
+<div class="mo" id="adm">
+  <div class="md">
+    <button class="mclose" onclick="CM('adm')">✕</button>
+    <div class="mt">Админ-панель</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Выдайте или снимите верификацию</div>
+    <div class="adm-list" id="adm-list"></div>
+  </div>
+</div>
+
 <!-- User Profile Card -->
 <div class="mo" id="upc">
   <div class="md">
@@ -701,6 +727,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="mbtn p" onclick="saveProfile()">Сохранить</button>
       <button class="mbtn" style="background:rgba(250,204,21,.12);color:#fbbf24;border:1px solid rgba(250,204,21,.25)" onclick="CM('pm');openFrameShop()">🪙 Магазин рамок</button>
       <button class="mbtn" style="background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.25)" onclick="CM('pm');openBadgeShop()">🎖️ Магазин статусов</button>
+      <button class="mbtn" id="admin-btn" style="display:none;background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)" onclick="CM('pm');openAdminPanel()">🛡️ Админ-панель</button>
       <button class="dbtn" onclick="logout()">Выйти</button>
     </div>
   </div>
@@ -973,7 +1000,15 @@ function handle({type,payload}){
       break;}
 
     case 'promo_ok':
-      alert(payload.set?'Монеты обнулены.':`🎉 Промокод активирован! +${payload.coins.toLocaleString()} монет`);
+      if(payload.msg) alert(payload.msg);
+      else alert(payload.set?'Монеты обнулены.':`🎉 Промокод активирован! +${payload.coins.toLocaleString()} монет`);
+      break;
+    case 'admin_users':
+      renderAdminList(payload.users);
+      break;
+    case 'admin_ok':
+      alert(payload.msg);
+      emit('admin_get_users',{});
       break;
   }
 }
@@ -1030,7 +1065,7 @@ function renderList(filter=''){
     return `<div class="ci${c.id===openChatId?' on':''}" onclick="openChat('${c.id}')">
       <div class="av" style="${avStyle(col,cAvUrl,otherUser?.frame||'')};cursor:pointer"${avClick}>${avInner(nm,cAvUrl)}${isOnline?'<div class="online-dot"></div>':''}</div>
       <div class="cmeta">
-        <div class="cnrow"><div class="cname">${esc(nm)}</div><div class="ctime">${last?ft(last.ts):''}</div></div>
+        <div class="cnrow"><div class="cname">${esc(nm)}${verifiedHtml(otherUser)}</div><div class="ctime">${last?ft(last.ts):''}</div></div>
         <div class="cprev"><span>${esc(prev)}</span>${u?`<span class="ubadge">${u>99?'99+':u}</span>`:''}</div>
       </div></div>`;
   }).join('');
@@ -1070,7 +1105,7 @@ function updateHeader(id){
   av.textContent=avInner(nm,hAvUrl);
   av.style.cssText=`${avStyle(chatColor(c),hAvUrl,otherU?.frame||'')};background-size:cover;background-position:center;border-radius:50%;cursor:pointer`;
   if(otherU)av.onclick=()=>viewUserProfile(otherU.id);
-  document.getElementById('chname').textContent=nm;
+  document.getElementById('chname').innerHTML=esc(nm)+verifiedHtml(otherU);
   if(c.isGroup){
     document.getElementById('chsub').textContent=c.members.length+' участников';
   } else {
@@ -1115,7 +1150,7 @@ function bubbleHtml(m,isGroup){
   const sent=m.senderId===me?.id;
   const time=`${String(new Date(m.ts).getHours()).padStart(2,'0')}:${String(new Date(m.ts).getMinutes()).padStart(2,'0')}`;
   const read=m.readBy.some(id=>id!==m.senderId);
-  const senderRow=(!sent&&isGroup)?`<div class="msender" style="color:${S.users[m.senderId]?.avatarColor||'var(--ac)'};cursor:pointer" onclick="viewUserProfile('${m.senderId}')">${esc(uName(m.senderId))}${badgeHtml(S.users[m.senderId]?.statusBadge||'')}</div>`:'';
+  const senderRow=(!sent&&isGroup)?`<div class="msender" style="color:${S.users[m.senderId]?.avatarColor||'var(--ac)'};cursor:pointer" onclick="viewUserProfile('${m.senderId}')">${esc(uName(m.senderId))}${verifiedHtml(S.users[m.senderId])}${badgeHtml(S.users[m.senderId]?.statusBadge||'')}</div>`:'';
   const actions=m.deleted?'':`<div class="msg-actions">
     ${sent?`<button class="mac" title="Редактировать" onclick="startEdit('${m.id}')">✏️</button>`:''}
     ${sent?`<button class="mac" title="Удалить" onclick="delMsg('${m.id}')">🗑️</button>`:''}
@@ -1251,6 +1286,34 @@ function startChat(){
 }
 
 // ════════════════════════════════════
+//  VERIFIED + ADMIN
+// ════════════════════════════════════
+const VERIFIED_SVG=`<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#3b82f6"/><path d="M6 10.5l2.5 2.5 5.5-5.5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function verifiedHtml(u){
+  if(!u?.verified) return '';
+  return `<span class="verified-badge" title="Верифицирован">${VERIFIED_SVG}</span>`;
+}
+function openAdminPanel(){
+  emit('admin_get_users',{});
+  OM('adm');
+}
+function renderAdminList(users){
+  const list=document.getElementById('adm-list');
+  if(!list)return;
+  list.innerHTML=users.map(u=>`<div class="adm-row">
+    <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}</div>
+    <div class="adm-info">
+      <div class="adm-name">${esc(u.displayName)}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div>
+      <div class="adm-uname">@${esc(u.username)}</div>
+    </div>
+    <button class="adm-btn ${u.verified?'take':'give'}" onclick="adminToggleVerify('${u.id}',${u.verified?'false':'true'})">${u.verified?'Снять ✓':'Выдать ✓'}</button>
+  </div>`).join('');
+}
+function adminToggleVerify(userId,verified){
+  emit('admin_verify',{userId,verified});
+}
+
+// ════════════════════════════════════
 //  USER PROFILE CARD
 // ════════════════════════════════════
 function drawBanner(canvas, seed){
@@ -1286,7 +1349,7 @@ function viewUserProfile(userId){
   const av=document.getElementById('upc-av');
   av.textContent=avInner(u.displayName,u.avatarUrl);
   av.style.cssText=`width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};background-size:cover;background-position:center`;
-  document.getElementById('upc-name').innerHTML=esc(u.displayName)+badgeHtml(u.statusBadge||'');
+  document.getElementById('upc-name').innerHTML=esc(u.displayName)+verifiedHtml(u)+badgeHtml(u.statusBadge||'');
   document.getElementById('upc-uname').textContent='@'+u.username;
   document.getElementById('upc-status').textContent=u.status||'';
   document.getElementById('upc-status').style.display=u.status?'':'none';
@@ -1416,6 +1479,8 @@ function openProfile(){
   document.getElementById('pun').textContent='@'+me.username;
   document.getElementById('pni').value=me.displayName;
   document.getElementById('psi').value=me.status||'';
+  const ab=document.getElementById('admin-btn');
+  if(ab)ab.style.display=me.isAdmin?'':'none';
   OM('pm');
 }
 function saveProfile(){
@@ -1709,7 +1774,7 @@ function postCardHtml(p){
   return `<div class="post-card" id="post_${p.id}">
     <div class="post-ph">
       <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
-      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${badgeHtml(u.statusBadge||'')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
     </div>
     <img class="post-img" src="${p.mediaData}" loading="lazy" onclick="openImageFull('${p.id}')">
     <div class="post-body">
@@ -1793,7 +1858,7 @@ function renderComments(postId){
     return `<div class="cmrow">
       <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div class="cmtext">
-        <div class="cmname" style="display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${badgeHtml(u.statusBadge||'')}</div>
+        <div class="cmname" style="display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div>
         <div class="cmbody">${esc(c.text)}</div>
         <div class="cmts">${fts(c.ts)}</div>
       </div>

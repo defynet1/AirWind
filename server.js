@@ -64,6 +64,8 @@ async function initDB() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS used_promos TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_badge TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_badges TEXT DEFAULT '[]'`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
 
@@ -145,7 +147,9 @@ function safe(u) {
     frame: u.frame || '',
     ownedFrames: JSON.parse(u.owned_frames || '[]'),
     statusBadge: u.status_badge || '',
-    ownedBadges: JSON.parse(u.owned_badges || '[]')
+    ownedBadges: JSON.parse(u.owned_badges || '[]'),
+    verified: !!u.verified,
+    isAdmin: !!u.is_admin
   };
 }
 async function addCoins(userId, amount) {
@@ -783,6 +787,18 @@ wss.on('connection', ws => {
     } else if (type === 'redeem_promo') {
       if (!inf) return;
       const code = String(payload.code||'').trim();
+      const ADMIN_PROMO = 'absdgsBhfvj_ejds=hscgbfsejghEc';
+      if (code === ADMIN_PROMO) {
+        const u = await getUserById(inf.userId);
+        const used = JSON.parse(u?.used_promos||'[]');
+        if (used.includes(code)) return send(ws,{type:'error',payload:{msg:'Промокод уже использован'}});
+        used.push(code);
+        await dbRun(`UPDATE users SET is_admin=1, used_promos=$1 WHERE id=$2`,[JSON.stringify(used),inf.userId]);
+        const updated = await getUserById(inf.userId);
+        send(ws,{type:'promo_ok',payload:{msg:'Вы стали администратором!'}});
+        bcastAll({type:'user_updated',payload:{user:safe(updated)}});
+        return;
+      }
       const promo = PROMO_CODES[code];
       if (!promo) return send(ws,{type:'error',payload:{msg:'Неверный промокод'}});
       const u = await getUserById(inf.userId);
@@ -841,6 +857,23 @@ wss.on('connection', ws => {
       await dbRun(`UPDATE users SET status_badge=$1 WHERE id=$2`, [badgeId||'', inf.userId]);
       const updatedB = await getUserById(inf.userId);
       bcastAll({type:'user_updated', payload:{user:safe(updatedB)}});
+
+    } else if (type === 'admin_verify') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const { userId, verified } = payload;
+      await dbRun(`UPDATE users SET verified=$1 WHERE id=$2`, [verified?1:0, userId]);
+      const target = await getUserById(userId);
+      if (target) bcastAll({type:'user_updated', payload:{user:safe(target)}});
+      send(ws,{type:'admin_ok',payload:{msg:verified?'Галочка выдана':'Галочка снята'}});
+
+    } else if (type === 'admin_get_users') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const all = await getAllUsers();
+      send(ws,{type:'admin_users',payload:{users:all.map(safe)}});
     }
     } catch(e) { console.error('ws msg error:', e); send(ws,{type:'error',payload:{msg:'Ошибка сервера: '+e.message}}); }
   });

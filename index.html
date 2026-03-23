@@ -1588,14 +1588,15 @@ function chanAvInner(ch){ return ch.avatarUrl?'':chanInitials(ch.name); }
 
 function renderChannelHeader(ch){
   const av=document.getElementById('ch-hdr-av');
-  av.style.cssText=chanAvStyle(ch);
+  av.style.cssText=chanAvStyle(ch)+(ch.isOwner?';cursor:pointer':'');
   av.textContent=chanAvInner(ch);
+  av.onclick=ch.isOwner?()=>openEditChannel(ch.id):null;
   document.getElementById('ch-hdr-name').textContent=ch.name;
   document.getElementById('ch-hdr-desc').textContent=
     (ch.description||'')+' · '+ch.memberCount+' подписчик'+memberSuffix(ch.memberCount);
   const btns=document.getElementById('ch-hdr-btns');
   if(ch.isOwner){
-    btns.innerHTML=`<button class="ibtn" title="Редактировать канал" onclick="openEditChannel('${ch.id}')">✏️</button>`;
+    btns.innerHTML='';
   } else if(ch.isMember){
     btns.innerHTML=`<button class="ch-leave-btn" onclick="leaveChannel('${ch.id}')">Отписаться</button>`;
   } else {

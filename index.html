@@ -180,6 +180,14 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .stbtn{width:36px;height:36px;border-radius:10px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
 .stbtn:hover{background:var(--sf2);color:var(--tx)}
 
+/* ── MEDIA (AUDIO / VIDEO) ── */
+.media-wrap{display:flex;flex-direction:column;gap:6px;min-width:240px;max-width:320px}
+.media-name{font-size:11px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+.media-wrap audio{width:100%;outline:none;border-radius:10px;height:36px;display:block}
+.media-wrap video{width:100%;max-width:320px;max-height:260px;border-radius:12px;display:block;background:#000;cursor:pointer}
+audio::-webkit-media-controls-panel{background:var(--sf3)}
+.mb.media-msg{min-width:260px}
+
 /* ── REACTIONS ── */
 .rpicker{position:fixed;z-index:300;background:rgba(15,17,22,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:50px;padding:6px 12px;display:flex;gap:2px;box-shadow:0 12px 40px rgba(0,0,0,.65),0 0 0 1px rgba(99,102,241,.08);animation:pop .15s cubic-bezier(.34,1.56,.64,1)}
 .rpicker-btn{background:none;border:none;font-size:21px;cursor:pointer;padding:3px 5px;border-radius:50%;transition:transform .12s;line-height:1}
@@ -332,8 +340,10 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
           <button class="edit-strip-close" onclick="clearEdit()">✕</button>
         </div>
         <div class="irow">
-          <button class="stbtn" title="Отправить стикер" onclick="document.getElementById('stickerfile').click()">🎭</button>
+          <button class="stbtn" title="Стикер / GIF" onclick="document.getElementById('stickerfile').click()">🎭</button>
           <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="sendSticker(this)">
+          <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>
+          <input type="file" id="mediafile" accept="audio/*,video/*" style="display:none" onchange="sendMedia(this)">
           <textarea class="minput" id="minput" rows="1" placeholder="Написать сообщение..."
             oninput="onInput(this)"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
@@ -738,12 +748,24 @@ function bubbleHtml(m,isGroup){
     <button class="mac" title="Реакция" onclick="showReactionPicker(this,'${m.id}','msg')">😊</button>
   </div>`;
   const isSticker=!!m.sticker&&!m.deleted;
-  const mbody=isSticker
-    ?`<img class="sticker-img" src="${m.sticker}" loading="lazy" onclick="viewSticker('${m.id}')">`
-    :`<div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>`;
+  const isMedia=!!m.media&&!m.deleted;
+  let mbody;
+  if(isSticker){
+    mbody=`<img class="sticker-img" src="${m.sticker}" loading="lazy" onclick="viewSticker('${m.id}')">`;
+  } else if(isMedia){
+    let med; try{med=JSON.parse(m.media);}catch(e){med=null;}
+    if(med){
+      const nm=esc(med.name||'файл');
+      mbody=med.type==='video'
+        ?`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${med.data}" controls preload="metadata" playsinline></video></div>`
+        :`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${med.data}" controls preload="metadata"></audio></div>`;
+    } else { mbody=`<div class="mtext">${esc(m.text)||'медиафайл'}</div>`; }
+  } else {
+    mbody=`<div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>`;
+  }
   return `<div class="mr ${sent?'sent':'recv'}" id="m_${m.id}">
     ${actions}
-    <div class="mb${isSticker?' sticker':''}">
+    <div class="mb${isSticker?' sticker':''}${isMedia?' media-msg':''}">
       ${senderRow}
       ${mbody}
       <div class="msg-reactions" id="mr_${m.id}">${reactionBadgesHtml(m.reactions||{},'msg',m.id)}</div>
@@ -939,6 +961,22 @@ function sendSticker(inp){
       emit('send_message',{chatId:openChatId,text:'',sticker:c.toDataURL('image/png',1.0)});
     };
     img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+
+function sendMedia(inp){
+  const file=inp.files[0]; if(!file||!openChatId) return;
+  const isVideo=file.type.startsWith('video/');
+  const isAudio=file.type.startsWith('audio/');
+  if(!isVideo&&!isAudio) return;
+  const limit=isVideo?50:20;
+  if(file.size>limit*1024*1024) return alert(`Файл слишком большой (макс. ${limit} МБ)`);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const media=JSON.stringify({type:isVideo?'video':'audio',name:file.name,data:e.target.result});
+    emit('send_message',{chatId:openChatId,text:'',media});
   };
   reader.readAsDataURL(file);
   inp.value='';

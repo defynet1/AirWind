@@ -916,6 +916,13 @@ function v(id){return(document.getElementById(id)||{}).value||'';}
 // ════════════════════════════════════
 function sendSticker(inp){
   const file=inp.files[0]; if(!file||!openChatId) return;
+  if(file.type==='image/gif'){
+    if(file.size>5*1024*1024) return alert('GIF слишком большой (макс. 5 МБ)');
+    const reader=new FileReader();
+    reader.onload=e=>{ emit('send_message',{chatId:openChatId,text:'',sticker:e.target.result}); };
+    reader.readAsDataURL(file);
+    inp.value=''; return;
+  }
   const reader=new FileReader();
   reader.onload=e=>{
     const img=new Image();
@@ -926,8 +933,7 @@ function sendSticker(inp){
       const scale=Math.min(size/img.width,size/img.height);
       const w=img.width*scale, h=img.height*scale;
       ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
-      const data=c.toDataURL('image/png',1.0);
-      emit('send_message',{chatId:openChatId,text:'',sticker:data});
+      emit('send_message',{chatId:openChatId,text:'',sticker:c.toDataURL('image/png',1.0)});
     };
     img.src=e.target.result;
   };

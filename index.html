@@ -1579,17 +1579,22 @@ function openChannel(id){
   renderChannelList();
 }
 
-function chanAvStyle(ch,size=44){
-  const base=`border-radius:14px;width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;font-weight:700;color:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;background-size:cover;background-position:center`;
-  if(ch.avatarUrl) return base+`;background-image:url(${ch.avatarUrl});background-color:${ch.avatarColor}`;
-  return base+`;background:${ch.avatarColor}`;
+function chanAvHtml(ch,size=44,extra=''){
+  const s=`border-radius:14px;width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;background:${ch.avatarColor}${extra?';'+extra:''}`;
+  const inner=ch.avatarUrl
+    ?`<img src="${ch.avatarUrl}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">`
+    :chanInitials(ch.name);
+  return {s,inner};
 }
+// keep old aliases for search
+function chanAvStyle(ch,size=44){ return chanAvHtml(ch,size).s; }
 function chanAvInner(ch){ return ch.avatarUrl?'':chanInitials(ch.name); }
 
 function renderChannelHeader(ch){
   const av=document.getElementById('ch-hdr-av');
-  av.style.cssText=chanAvStyle(ch)+(ch.isOwner?';cursor:pointer':'');
-  av.textContent=chanAvInner(ch);
+  const _hav=chanAvHtml(ch,44,ch.isOwner?'cursor:pointer':'');
+  av.style.cssText=_hav.s;
+  av.innerHTML=_hav.inner;
   av.onclick=ch.isOwner?()=>openEditChannel(ch.id):null;
   document.getElementById('ch-hdr-name').textContent=ch.name;
   document.getElementById('ch-hdr-desc').textContent=
@@ -1719,8 +1724,10 @@ function renderEcAvatar(ch){
   const av=document.getElementById('ec-av');
   const url=pendingChanAvatarUrl||ch?.avatarUrl||'';
   const color=pendingChanColor||ch?.avatarColor||CHAN_COLORS[0];
-  av.style.cssText=`border-radius:14px;width:56px;height:56px;font-size:22px;font-weight:700;color:#fff;background:${color};background-size:cover;background-position:center;${url?'background-image:url('+url+');':''}position:relative;overflow:hidden`;
-  av.textContent=url?'':(ch?chanInitials(ch.name):'#');
+  av.style.cssText=`border-radius:14px;width:56px;height:56px;font-size:22px;font-weight:700;color:#fff;background:${color};position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center`;
+  av.innerHTML=url
+    ?`<img src="${url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block">`
+    :(ch?chanInitials(ch.name):'#');
 }
 function selectChanColor(color){
   pendingChanColor=color;

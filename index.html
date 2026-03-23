@@ -315,6 +315,11 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .cminput::placeholder{color:var(--tx3)}
 @keyframes frame-fire{0%{box-shadow:0 0 0 3px #f97316,0 0 14px rgba(249,115,22,.8)}100%{box-shadow:0 0 0 3px #ef4444,0 0 22px rgba(239,68,68,.95)}}
 @keyframes frame-rainbow{0%{box-shadow:0 0 0 3px #ef4444,0 0 12px rgba(239,68,68,.7)}17%{box-shadow:0 0 0 3px #f97316,0 0 12px rgba(249,115,22,.7)}33%{box-shadow:0 0 0 3px #eab308,0 0 12px rgba(234,179,8,.7)}50%{box-shadow:0 0 0 3px #22c55e,0 0 12px rgba(34,197,94,.7)}67%{box-shadow:0 0 0 3px #3b82f6,0 0 12px rgba(59,130,246,.7)}83%{box-shadow:0 0 0 3px #a855f7,0 0 12px rgba(168,85,247,.7)}100%{box-shadow:0 0 0 3px #ef4444,0 0 12px rgba(239,68,68,.7)}}
+@keyframes frame-pulse{0%,100%{box-shadow:0 0 0 3px #34d399,0 0 8px rgba(52,211,153,.5)}50%{box-shadow:0 0 0 5px #34d399,0 0 22px rgba(52,211,153,.9)}}
+@keyframes frame-neon{0%,100%{box-shadow:0 0 0 3px #f472b6,0 0 10px rgba(244,114,182,.6)}50%{box-shadow:0 0 0 4px #f472b6,0 0 28px rgba(244,114,182,1),0 0 6px #fff}}
+@keyframes frame-electro{0%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}25%{box-shadow:0 0 0 2px #67e8f9,0 0 4px rgba(103,232,249,.3)}50%{box-shadow:0 0 0 4px #06b6d4,0 0 20px rgba(6,182,212,.9)}75%{box-shadow:0 0 0 2px #67e8f9,0 0 6px rgba(103,232,249,.4)}100%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}}
+@keyframes frame-lava{0%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}33%{box-shadow:0 0 0 3px #f97316,0 0 18px rgba(249,115,22,.8)}66%{box-shadow:0 0 0 3px #fbbf24,0 0 14px rgba(251,191,36,.7)}100%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}}
+@keyframes frame-cosmos{0%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}25%{box-shadow:0 0 0 3px #c084fc,0 0 20px rgba(192,132,252,.8)}50%{box-shadow:0 0 0 3px #f0abfc,0 0 24px rgba(240,171,252,.9)}75%{box-shadow:0 0 0 3px #67e8f9,0 0 20px rgba(103,232,249,.8)}100%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}}
 /* Frame shop */
 #fsm .md{max-width:380px}
 #bsm .md{max-width:380px}
@@ -1183,8 +1188,13 @@ const FRAMES=[
   {id:'gold',   name:'Золото',   cost:10,  css:'box-shadow:0 0 0 3px #fbbf24,0 0 12px rgba(251,191,36,.7)'},
   {id:'purple', name:'Аметист',  cost:20,  css:'box-shadow:0 0 0 3px #a855f7,0 0 12px rgba(168,85,247,.7)'},
   {id:'blue',   name:'Сапфир',   cost:30,  css:'box-shadow:0 0 0 3px #38bdf8,0 0 12px rgba(56,189,248,.7)'},
+  {id:'pulse',  name:'Пульс',   cost:40,  css:'animation:frame-pulse 2s ease-in-out infinite'},
   {id:'fire',   name:'Огонь',    cost:50,  css:'animation:frame-fire 1.2s ease-in-out infinite alternate'},
+  {id:'neon',   name:'Неон',     cost:60,  css:'animation:frame-neon 1.5s ease-in-out infinite'},
+  {id:'electro',name:'Электро', cost:70,  css:'animation:frame-electro .8s ease-in-out infinite'},
   {id:'rainbow',name:'Радуга',   cost:80,  css:'animation:frame-rainbow 3s linear infinite'},
+  {id:'lava',   name:'Лава',     cost:90,  css:'animation:frame-lava 2.5s ease-in-out infinite'},
+  {id:'cosmos', name:'Космос',  cost:100, css:'animation:frame-cosmos 4s linear infinite'},
 ];
 function frameExtraCss(frameId){const f=FRAMES.find(x=>x.id===frameId);return f?f.css:'';}
 

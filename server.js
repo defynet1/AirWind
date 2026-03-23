@@ -130,7 +130,7 @@ async function createUser(username, displayName, password) {
 async function getUserByUsername(u) { return dbGet(`SELECT * FROM users WHERE username=$1`, [u]); }
 async function getUserById(id)      { return dbGet(`SELECT * FROM users WHERE id=$1`, [id]); }
 async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER BY display_name`); }
-const FRAME_COSTS  = { gold:10, purple:20, blue:30, fire:50, rainbow:80 };
+const FRAME_COSTS  = { gold:10, purple:20, blue:30, pulse:40, fire:50, neon:60, electro:70, rainbow:80, lava:90, cosmos:100 };
 const PROMO_CODES  = { '67': {coins:1000000,set:false}, '68': {coins:0,set:true} };
 const BADGE_COSTS  = { active:50, popular:200, legend:500, god:2000 };
 

@@ -58,6 +58,7 @@ async function initDB() {
   )`);
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS posts (
     id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
@@ -179,12 +180,13 @@ function toMsg(m) {
   return { id: m.id, chatId: m.chat_id, senderId: m.sender_id,
     text: m.text, ts: Number(m.ts), edited: !!m.edited,
     readBy: m.read_by ? m.read_by.split(',') : [m.sender_id],
+    sticker: m.sticker || '',
     reactions: {} };
 }
-async function insertMessage(chatId, senderId, text) {
+async function insertMessage(chatId, senderId, text, sticker = '') {
   const id = newId(), ts = Date.now();
-  await dbRun(`INSERT INTO messages(id,chat_id,sender_id,text,ts) VALUES($1,$2,$3,$4,$5)`,
-    [id, chatId, senderId, text, ts]);
+  await dbRun(`INSERT INTO messages(id,chat_id,sender_id,text,ts,sticker) VALUES($1,$2,$3,$4,$5,$6)`,
+    [id, chatId, senderId, text, ts, sticker]);
   await dbRun(`INSERT INTO read_receipts(msg_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [id, senderId]);
   return getMessageById(id);
 }
@@ -351,11 +353,11 @@ wss.on('connection', ws => {
 
     } else if (type === 'send_message') {
       if (!inf) return;
-      const { chatId, text } = payload;
-      if (!text||!text.trim()) return;
+      const { chatId, text, sticker } = payload;
+      if (!text?.trim() && !sticker) return;
       const members = await getChatMembers(chatId);
       if (chatId!=='__global__' && !members.includes(inf.userId)) return;
-      const msg = await insertMessage(chatId, inf.userId, text.trim());
+      const msg = await insertMessage(chatId, inf.userId, text?.trim()||'', sticker||'');
       await bcastChat(chatId, {type:'new_message',payload:{msg}});
       if (typing[chatId]) { typing[chatId].delete(inf.userId); await bcastChat(chatId,{type:'typing',payload:{chatId,userIds:[...typing[chatId]]}}); }
 

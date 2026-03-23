@@ -170,6 +170,13 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .dbtn:hover{background:rgba(255,92,106,.14)}
 .hidden{display:none!important}
 
+/* ── STICKERS ── */
+.mb.sticker{background:transparent!important;border:none!important;padding:2px 0!important;box-shadow:none!important}
+.sticker-img{width:160px;height:160px;object-fit:contain;border-radius:14px;display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.35));cursor:zoom-in;transition:transform .15s}
+.sticker-img:hover{transform:scale(1.05)}
+.stbtn{width:36px;height:36px;border-radius:10px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
+.stbtn:hover{background:var(--sf2);color:var(--tx)}
+
 /* ── REACTIONS ── */
 .rpicker{position:fixed;z-index:300;background:var(--sf);border:1px solid var(--br);border-radius:50px;padding:5px 10px;display:flex;gap:2px;box-shadow:0 8px 28px rgba(0,0,0,.5);animation:pop .15s cubic-bezier(.34,1.56,.64,1)}
 .rpicker-btn{background:none;border:none;font-size:21px;cursor:pointer;padding:3px 5px;border-radius:50%;transition:transform .12s;line-height:1}
@@ -322,6 +329,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
           <button class="edit-strip-close" onclick="clearEdit()">✕</button>
         </div>
         <div class="irow">
+          <button class="stbtn" title="Отправить стикер" onclick="document.getElementById('stickerfile').click()">🎭</button>
+          <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="sendSticker(this)">
           <textarea class="minput" id="minput" rows="1" placeholder="Написать сообщение..."
             oninput="onInput(this)"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
@@ -725,11 +734,15 @@ function bubbleHtml(m,isGroup){
     <button class="mac" title="Ответить" onclick="startReply('${m.id}')">↩️</button>
     <button class="mac" title="Реакция" onclick="showReactionPicker(this,'${m.id}','msg')">😊</button>
   </div>`;
+  const isSticker=!!m.sticker&&!m.deleted;
+  const mbody=isSticker
+    ?`<img class="sticker-img" src="${m.sticker}" loading="lazy" onclick="viewSticker('${m.id}')">`
+    :`<div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>`;
   return `<div class="mr ${sent?'sent':'recv'}" id="m_${m.id}">
     ${actions}
-    <div class="mb">
+    <div class="mb${isSticker?' sticker':''}">
       ${senderRow}
-      <div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>
+      ${mbody}
       <div class="msg-reactions" id="mr_${m.id}">${reactionBadgesHtml(m.reactions||{},'msg',m.id)}</div>
       <div class="mfooter">
         ${m.edited&&!m.deleted?`<span class="medit">изм.</span>`:''}
@@ -898,6 +911,40 @@ function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;
 function v(id){return(document.getElementById(id)||{}).value||'';}
 
 // enter keys
+// ════════════════════════════════════
+//  STICKERS
+// ════════════════════════════════════
+function sendSticker(inp){
+  const file=inp.files[0]; if(!file||!openChatId) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const size=256;
+      const c=document.createElement('canvas'); c.width=c.height=size;
+      const ctx=c.getContext('2d');
+      const scale=Math.min(size/img.width,size/img.height);
+      const w=img.width*scale, h=img.height*scale;
+      ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+      const data=c.toDataURL('image/png',1.0);
+      emit('send_message',{chatId:openChatId,text:'',sticker:data});
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+
+function viewSticker(msgId){
+  const msg=Object.values(S.msgs).flat().find(m=>m.id===msgId);
+  if(!msg?.sticker) return;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  ov.innerHTML=`<img src="${msg.sticker}" style="max-width:400px;max-height:400px;object-fit:contain;border-radius:18px;filter:drop-shadow(0 8px 32px rgba(0,0,0,.6))">`;
+  ov.onclick=()=>ov.remove();
+  document.body.appendChild(ov);
+}
+
 // ════════════════════════════════════
 //  REACTIONS
 // ════════════════════════════════════

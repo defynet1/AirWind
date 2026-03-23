@@ -847,7 +847,7 @@ function handle({type,payload}){
       break;}
 
     case 'promo_ok':
-      alert(`🎉 Промокод активирован! +${payload.coins.toLocaleString()} монет`);
+      alert(payload.set?'Монеты обнулены.':`🎉 Промокод активирован! +${payload.coins.toLocaleString()} монет`);
       break;
   }
 }

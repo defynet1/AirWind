@@ -129,7 +129,7 @@ async function getUserByUsername(u) { return dbGet(`SELECT * FROM users WHERE us
 async function getUserById(id)      { return dbGet(`SELECT * FROM users WHERE id=$1`, [id]); }
 async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER BY display_name`); }
 const FRAME_COSTS  = { gold:10, purple:20, blue:30, fire:50, rainbow:80 };
-const PROMO_CODES  = { '67': 1000000 };
+const PROMO_CODES  = { '67': {coins:1000000,set:false}, '68': {coins:0,set:true} };
 
 function safe(u) {
   if (!u) return null;
@@ -777,15 +777,19 @@ wss.on('connection', ws => {
     } else if (type === 'redeem_promo') {
       if (!inf) return;
       const code = String(payload.code||'').trim();
-      const reward = PROMO_CODES[code];
-      if (!reward) return send(ws,{type:'error',payload:{msg:'Неверный промокод'}});
+      const promo = PROMO_CODES[code];
+      if (!promo) return send(ws,{type:'error',payload:{msg:'Неверный промокод'}});
       const u = await getUserById(inf.userId);
       const used = JSON.parse(u?.used_promos||'[]');
       if (used.includes(code)) return send(ws,{type:'error',payload:{msg:'Промокод уже использован'}});
       used.push(code);
-      await dbRun(`UPDATE users SET coins=coins+$1, used_promos=$2 WHERE id=$3`,[reward,JSON.stringify(used),inf.userId]);
+      if (promo.set) {
+        await dbRun(`UPDATE users SET coins=$1, used_promos=$2 WHERE id=$3`,[promo.coins,JSON.stringify(used),inf.userId]);
+      } else {
+        await dbRun(`UPDATE users SET coins=coins+$1, used_promos=$2 WHERE id=$3`,[promo.coins,JSON.stringify(used),inf.userId]);
+      }
       const updated = await getUserById(inf.userId);
-      send(ws,{type:'promo_ok',payload:{coins:reward}});
+      send(ws,{type:'promo_ok',payload:{coins:promo.coins,set:promo.set}});
       bcastAll({type:'user_updated',payload:{user:safe(updated)}});
 
     } else if (type === 'equip_frame') {

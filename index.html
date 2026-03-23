@@ -846,6 +846,11 @@ function handle({type,payload}){
       if(rel) rel.innerHTML=reactionBadgesHtml(payload.reactions,'chanpost',payload.postId);
       break;}
 
+    case 'frame_ok':{
+      const f=FRAMES.find(x=>x.id===payload.frameId);
+      if(f) alert(`✅ Рамка «${f.name}» куплена и надета!`);
+      break;}
+
     case 'promo_ok':
       alert(payload.set?'Монеты обнулены.':`🎉 Промокод активирован! +${payload.coins.toLocaleString()} монет`);
       break;

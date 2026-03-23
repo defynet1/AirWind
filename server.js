@@ -485,6 +485,7 @@ wss.on('connection', ws => {
     let pkt; try { pkt = JSON.parse(raw); } catch { return; }
     const { type, payload } = pkt;
     const inf = clients.get(ws);
+    try {
 
     if (type === 'register') {
       const { username, displayName, password } = payload;
@@ -753,7 +754,6 @@ wss.on('connection', ws => {
       await dbRun(`DELETE FROM channel_post_reactions WHERE post_id=$1`, [payload.postId]);
       await bcastChannel(cpDel.channel_id, {type:'channel_post_deleted',
         payload:{postId:payload.postId, channelId:cpDel.channel_id}});
-
     } else if (type === 'buy_frame') {
       if (!inf) return;
       const { frameId } = payload;
@@ -772,6 +772,7 @@ wss.on('connection', ws => {
           [cost, JSON.stringify(owned), frameId, inf.userId]);
       }
       const updated = await getUserById(inf.userId);
+      send(ws, {type:'frame_ok', payload:{frameId}});
       bcastAll({type:'user_updated', payload:{user:safe(updated)}});
 
     } else if (type === 'redeem_promo') {
@@ -804,6 +805,7 @@ wss.on('connection', ws => {
       const updated = await getUserById(inf.userId);
       bcastAll({type:'user_updated', payload:{user:safe(updated)}});
     }
+    } catch(e) { console.error('ws msg error:', e); send(ws,{type:'error',payload:{msg:'Ошибка сервера: '+e.message}}); }
   });
 
   ws.on('close', async () => {

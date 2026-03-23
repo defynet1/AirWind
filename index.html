@@ -320,6 +320,23 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 @keyframes frame-electro{0%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}25%{box-shadow:0 0 0 2px #67e8f9,0 0 4px rgba(103,232,249,.3)}50%{box-shadow:0 0 0 4px #06b6d4,0 0 20px rgba(6,182,212,.9)}75%{box-shadow:0 0 0 2px #67e8f9,0 0 6px rgba(103,232,249,.4)}100%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}}
 @keyframes frame-lava{0%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}33%{box-shadow:0 0 0 3px #f97316,0 0 18px rgba(249,115,22,.8)}66%{box-shadow:0 0 0 3px #fbbf24,0 0 14px rgba(251,191,36,.7)}100%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}}
 @keyframes frame-cosmos{0%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}25%{box-shadow:0 0 0 3px #c084fc,0 0 20px rgba(192,132,252,.8)}50%{box-shadow:0 0 0 3px #f0abfc,0 0 24px rgba(240,171,252,.9)}75%{box-shadow:0 0 0 3px #67e8f9,0 0 20px rgba(103,232,249,.8)}100%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}}
+/* Settings */
+#stm .md{max-width:420px}
+.set-section{margin-bottom:18px}
+.set-section-title{font-size:12px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.set-bgs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.set-bg{width:100%;aspect-ratio:1;border-radius:12px;cursor:pointer;border:2px solid transparent;transition:.2s;position:relative}
+.set-bg.on{border-color:var(--ac);box-shadow:0 0 0 2px var(--ac-glow)}
+.set-bg:hover{opacity:.85}
+.set-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.set-toggle:last-child{border-bottom:none}
+.set-toggle-label{font-size:14px;color:var(--tx)}
+.set-switch{position:relative;width:42px;height:24px;flex-shrink:0}
+.set-switch input{display:none}
+.set-switch .slider{position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:24px;cursor:pointer;transition:.2s}
+.set-switch .slider:before{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;left:3px;top:3px;transition:.2s}
+.set-switch input:checked+.slider{background:var(--ac)}
+.set-switch input:checked+.slider:before{transform:translateX(18px)}
 /* Frame shop */
 #fsm .md{max-width:380px}
 #bsm .md{max-width:380px}
@@ -372,6 +389,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="ibtn" title="Поиск" onclick="openSearch()">🔍</button>
       <button class="ibtn" title="Новый чат" onclick="openNewChat()">✏️</button>
       <div id="coins-badge" style="display:none;align-items:center;gap:3px;background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.25);border-radius:20px;padding:3px 8px;font-size:12px;font-weight:600;color:#fbbf24;cursor:default;flex-shrink:0" title="Ваши монеты">🪙 <span id="coins-count">0</span></div>
+      <button class="ibtn" title="Настройки" onclick="openSettings()">⚙️</button>
       <button class="ibtn" title="Профиль" onclick="openProfile()">👤</button>
     </div>
     <div class="stabs">
@@ -575,6 +593,49 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div class="mact">
       <button class="mbtn g" onclick="CM('ncm')">Отмена</button>
       <button class="mbtn p" id="scbtn" onclick="startChat()">Начать чат</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="mo" id="stm">
+  <div class="md">
+    <button class="mclose" onclick="CM('stm')">✕</button>
+    <div class="mt">Настройки</div>
+
+    <div class="set-section">
+      <div class="set-section-title">Фон чата</div>
+      <div class="set-bgs" id="set-bgs"></div>
+    </div>
+
+    <div class="set-section">
+      <div class="set-section-title">Аккаунт</div>
+      <div class="psec"><label>Имя</label><input id="set-dn" type="text"></div>
+      <div class="psec"><label>Статус</label><input id="set-st" placeholder="Привет, я в AirWind!"></div>
+      <div class="psec" style="margin-top:8px">
+        <label>Аватар</label>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div id="set-av" style="width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;background-size:cover;background-position:center;overflow:hidden" onclick="document.getElementById('set-avfile').click()"></div>
+          <input type="file" id="set-avfile" accept="image/*" style="display:none" onchange="pickSettingsAvatar(this)">
+          <span style="font-size:12px;color:var(--tx3)">Нажмите на аватар</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="set-section">
+      <div class="set-section-title">Отображение</div>
+      <div class="set-toggle">
+        <span class="set-toggle-label">Отключить анимации рамок</span>
+        <label class="set-switch"><input type="checkbox" id="set-no-anim" onchange="toggleSetting('noAnim',this.checked)"><span class="slider"></span></label>
+      </div>
+      <div class="set-toggle">
+        <span class="set-toggle-label">Отключить GIF-аватары</span>
+        <label class="set-switch"><input type="checkbox" id="set-no-gif" onchange="toggleSetting('noGif',this.checked)"><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="mact">
+      <button class="mbtn p" onclick="saveSettings()">Сохранить</button>
     </div>
   </div>
 </div>
@@ -1149,6 +1210,97 @@ function startChat(){
 }
 
 // ════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════
+const CHAT_BGS=[
+  {id:'default', name:'По умолчанию', css:''},
+  {id:'dots',    name:'Точки',       css:'background-image:radial-gradient(circle,rgba(255,255,255,.04) 1px,transparent 1px);background-size:20px 20px'},
+  {id:'grid',    name:'Сетка',       css:'background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:24px 24px'},
+  {id:'stars',   name:'Звёзды',      css:'background-image:radial-gradient(2px 2px at 10% 20%,rgba(255,255,255,.15),transparent),radial-gradient(2px 2px at 40% 60%,rgba(255,255,255,.1),transparent),radial-gradient(1px 1px at 70% 30%,rgba(255,255,255,.12),transparent),radial-gradient(1px 1px at 90% 80%,rgba(255,255,255,.08),transparent);background-size:200px 200px'},
+  {id:'gradient1',name:'Индиго',     css:'background:linear-gradient(180deg,rgba(99,102,241,.08) 0%,transparent 100%)'},
+  {id:'gradient2',name:'Закат',      css:'background:linear-gradient(180deg,rgba(239,68,68,.06) 0%,rgba(249,115,22,.04) 50%,transparent 100%)'},
+  {id:'gradient3',name:'Изумруд',    css:'background:linear-gradient(180deg,rgba(52,211,153,.06) 0%,transparent 100%)'},
+  {id:'gradient4',name:'Фиолет',     css:'background:linear-gradient(180deg,rgba(168,85,247,.08) 0%,rgba(99,102,241,.04) 50%,transparent 100%)'},
+];
+let appSettings=JSON.parse(localStorage.getItem('aw_settings')||'{}');
+let pendingSettingsAvatar=null;
+
+function applyChatBg(){
+  const msgs=document.getElementById('msgs');
+  if(!msgs)return;
+  const bg=CHAT_BGS.find(b=>b.id===appSettings.chatBg)||CHAT_BGS[0];
+  msgs.style.cssText=msgs.style.cssText.replace(/background-image:[^;]+;?/g,'').replace(/background:linear[^;]+;?/g,'');
+  if(bg.css){msgs.style.cssText+=';'+bg.css;}
+}
+function applyAnimSettings(){
+  let styleEl=document.getElementById('aw-settings-style');
+  if(!styleEl){styleEl=document.createElement('style');styleEl.id='aw-settings-style';document.head.appendChild(styleEl);}
+  let rules='';
+  if(appSettings.noAnim)rules+=`*{animation:none!important;}`;
+  if(appSettings.noGif)rules+=`.av img,.pav img,[style*="background-image:url(data:image"]{visibility:hidden!important;}`;
+  styleEl.textContent=rules;
+}
+function toggleSetting(key,val){
+  appSettings[key]=val;
+}
+function openSettings(){
+  pendingSettingsAvatar=null;
+  const container=document.getElementById('set-bgs');
+  container.innerHTML=CHAT_BGS.map(bg=>{
+    const active=(appSettings.chatBg||'default')===bg.id?'on':'';
+    const preview=bg.css||'background:var(--bg)';
+    return `<div class="set-bg ${active}" onclick="selectChatBg('${bg.id}')" title="${bg.name}" style="${preview};background-color:var(--bg)"></div>`;
+  }).join('');
+  if(me){
+    document.getElementById('set-dn').value=me.displayName;
+    document.getElementById('set-st').value=me.status||'';
+    const av=document.getElementById('set-av');
+    av.textContent=avInner(me.displayName,me.avatarUrl);
+    av.style.cssText=`width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;overflow:hidden;${avStyle(me.avatarColor,me.avatarUrl)};background-size:cover;background-position:center`;
+  }
+  document.getElementById('set-no-anim').checked=!!appSettings.noAnim;
+  document.getElementById('set-no-gif').checked=!!appSettings.noGif;
+  OM('stm');
+}
+function selectChatBg(id){
+  appSettings.chatBg=id;
+  document.querySelectorAll('.set-bg').forEach(el=>el.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+}
+function pickSettingsAvatar(inp){
+  const file=inp.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');c.width=c.height=200;
+      c.getContext('2d').drawImage(img,0,0,200,200);
+      pendingSettingsAvatar=c.toDataURL('image/jpeg',0.85);
+      const av=document.getElementById('set-av');
+      av.style.backgroundImage=`url(${pendingSettingsAvatar})`;
+      av.textContent='';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function saveSettings(){
+  localStorage.setItem('aw_settings',JSON.stringify(appSettings));
+  applyChatBg();
+  applyAnimSettings();
+  if(me){
+    const dn=document.getElementById('set-dn').value.trim();
+    const st=document.getElementById('set-st').value.trim();
+    if(dn){
+      const upd={displayName:dn,status:st};
+      if(pendingSettingsAvatar!==null){upd.avatarUrl=pendingSettingsAvatar;pendingSettingsAvatar=null;}
+      emit('update_profile',upd);
+    }
+  }
+  CM('stm');
+}
+
+// ════════════════════════════════════
 //  PROFILE
 // ════════════════════════════════════
 function openProfile(){
@@ -1627,6 +1779,8 @@ function fts(ts){
 ['rn','ru','rp','rp2'].forEach(id=>document.getElementById(id)?.addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();}));
 
 connect();
+applyChatBg();
+applyAnimSettings();
 
 // ════════════════════════════════════
 //  SEARCH

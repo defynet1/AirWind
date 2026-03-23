@@ -9,8 +9,8 @@ const WebSocket = require('ws');
 const { Pool }  = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://airwind:airwind@localhost:5432/airwind',
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:WcJASiKKkIBbYieWGemjbKXFDXpPMXTa@postgres.railway.internal:5432/railway',
+  ssl: { rejectUnauthorized: false }
 });
 
 // ─── pg helpers ───────────────────────────────────

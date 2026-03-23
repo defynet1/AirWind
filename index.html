@@ -313,6 +313,21 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .cminput{flex:1;background:var(--sf2);border:1px solid var(--br);border-radius:9px;padding:9px 13px;color:var(--tx);font-family:var(--font);font-size:14px;outline:none;transition:.2s}
 .cminput:focus{border-color:var(--ac)}
 .cminput::placeholder{color:var(--tx3)}
+@keyframes frame-fire{0%{box-shadow:0 0 0 3px #f97316,0 0 14px rgba(249,115,22,.8)}100%{box-shadow:0 0 0 3px #ef4444,0 0 22px rgba(239,68,68,.95)}}
+@keyframes frame-rainbow{0%{box-shadow:0 0 0 3px #ef4444,0 0 12px rgba(239,68,68,.7)}17%{box-shadow:0 0 0 3px #f97316,0 0 12px rgba(249,115,22,.7)}33%{box-shadow:0 0 0 3px #eab308,0 0 12px rgba(234,179,8,.7)}50%{box-shadow:0 0 0 3px #22c55e,0 0 12px rgba(34,197,94,.7)}67%{box-shadow:0 0 0 3px #3b82f6,0 0 12px rgba(59,130,246,.7)}83%{box-shadow:0 0 0 3px #a855f7,0 0 12px rgba(168,85,247,.7)}100%{box-shadow:0 0 0 3px #ef4444,0 0 12px rgba(239,68,68,.7)}}
+/* Frame shop */
+#fsm .md{max-width:380px}
+.fs-list{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.fs-item{background:var(--sf);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.fs-prev{width:46px;height:46px;border-radius:50%;background:#444;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0}
+.fs-name{font-size:13px;font-weight:600;color:var(--tx)}
+.fs-cost{font-size:11px;color:#fbbf24;font-weight:600}
+.fs-btn{font-size:11px;padding:4px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:600;transition:opacity .15s}
+.fs-btn.buy{background:var(--ac);color:#fff}
+.fs-btn.buy:disabled{opacity:.4;cursor:default}
+.fs-btn.equip{background:rgba(99,102,241,.18);color:var(--ac);border:1px solid rgba(99,102,241,.3)}
+.fs-btn.remove{background:rgba(255,255,255,.07);color:var(--tx3);border:1px solid rgba(255,255,255,.1)}
+.fs-owned{font-size:10px;color:var(--tx3);margin-bottom:2px}
 </style>
 </head>
 <body>
@@ -572,8 +587,19 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div class="psec"><label>Статус</label><input id="psi" placeholder="Привет, я в AirWind!"></div>
     <div class="mact" style="flex-direction:column">
       <button class="mbtn p" onclick="saveProfile()">Сохранить</button>
+      <button class="mbtn" style="background:rgba(250,204,21,.12);color:#fbbf24;border:1px solid rgba(250,204,21,.25)" onclick="CM('pm');openFrameShop()">🪙 Магазин рамок</button>
       <button class="dbtn" onclick="logout()">Выйти</button>
     </div>
+  </div>
+</div>
+
+<!-- Frame Shop Modal -->
+<div class="mo" id="fsm">
+  <div class="md">
+    <button class="mclose" onclick="CM('fsm')">✕</button>
+    <div class="mt">🪙 Магазин рамок</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">У вас: <span id="fs-coins">0</span> монет</div>
+    <div class="fs-list" id="fs-list"></div>
   </div>
 </div>
 
@@ -626,7 +652,7 @@ function handle({type,payload}){
     case 'user_joined':
     case 'user_updated':
       S.users[payload.user.id]=payload.user;
-      if(me&&payload.user.id===me.id){me=payload.user;updateCoins(me.coins||0);}
+      if(me&&payload.user.id===me.id){me=payload.user;updateCoins(me.coins||0);if(document.getElementById('fsm')?.classList.contains('on'))openFrameShop();}
       renderList();
       if(openChatId)updateHeader(openChatId); break;
 
@@ -864,7 +890,7 @@ function renderList(filter=''){
     const otherUser=!c.isGroup&&c.members?S.users[c.members.find(id=>id!==me?.id)]:null;
     const cAvUrl=otherUser?.avatarUrl||'';
     return `<div class="ci${c.id===openChatId?' on':''}" onclick="openChat('${c.id}')">
-      <div class="av" style="${avStyle(col,cAvUrl)}">${avInner(nm,cAvUrl)}${isOnline?'<div class="online-dot"></div>':''}</div>
+      <div class="av" style="${avStyle(col,cAvUrl,otherUser?.frame||'')}">${avInner(nm,cAvUrl)}${isOnline?'<div class="online-dot"></div>':''}</div>
       <div class="cmeta">
         <div class="cnrow"><div class="cname">${esc(nm)}</div><div class="ctime">${last?ft(last.ts):''}</div></div>
         <div class="cprev"><span>${esc(prev)}</span>${u?`<span class="ubadge">${u>99?'99+':u}</span>`:''}</div>
@@ -903,7 +929,7 @@ function updateHeader(id){
   const otherU=!c.isGroup&&c.members?S.users[c.members.find(id=>id!==me?.id)]:null;
   const hAvUrl=otherU?.avatarUrl||'';
   av.textContent=avInner(nm,hAvUrl);
-  av.style.cssText=`${avStyle(chatColor(c),hAvUrl)};background-size:cover;background-position:center;border-radius:50%`;
+  av.style.cssText=`${avStyle(chatColor(c),hAvUrl,otherU?.frame||'')};background-size:cover;background-position:center;border-radius:50%`;
   document.getElementById('chname').textContent=nm;
   if(c.isGroup){
     document.getElementById('chsub').textContent=c.members.length+' участников';
@@ -1056,7 +1082,7 @@ function openNewChat(){
   const others=Object.values(S.users).filter(u=>u.id!==me?.id);
   document.getElementById('ulist').innerHTML=others.length
     ?others.map(u=>`<div class="urow" id="ur_${u.id}" onclick="togU('${u.id}')">
-        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl)};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
+        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
         <div class="uri"><div class="urn">${esc(u.displayName)}</div><div class="uruu">@${esc(u.username)}</div></div>
         <span class="chk">✓</span></div>`).join('')
     :'<div style="padding:18px;text-align:center;color:var(--tx3);font-size:13px">Нет других пользователей</div>';
@@ -1091,7 +1117,7 @@ function openProfile(){
   pendingAvatarUrl=null;
   const pav=document.getElementById('pav');
   pav.textContent=avInner(me.displayName,me.avatarUrl);
-  pav.style.cssText=`width:56px;height:56px;${avStyle(me.avatarColor,me.avatarUrl)};background-size:cover;background-position:center;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;position:relative;overflow:hidden`;
+  pav.style.cssText=`width:56px;height:56px;${avStyle(me.avatarColor,me.avatarUrl,me.frame||'')};background-size:cover;background-position:center;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;position:relative;overflow:hidden`;
   document.getElementById('pdn').textContent=me.displayName;
   document.getElementById('pun').textContent='@'+me.username;
   document.getElementById('pni').value=me.displayName;
@@ -1120,7 +1146,19 @@ document.querySelectorAll('.mo').forEach(el=>el.addEventListener('click',e=>{if(
 function chatName(c){if(c.isGroup)return c.name||'Группа';const o=c.members?.find(id=>id!==me?.id);return S.users[o]?.displayName||'Пользователь';}
 function chatColor(c){if(c.isGroup)return'#7c5cfc';const o=c.members?.find(id=>id!==me?.id);return S.users[o]?.avatarColor||'#555';}
 function uName(id){return S.users[id]?.displayName||'?';}
-function avStyle(color,avatarUrl){return avatarUrl?`background:#000;background-image:url(${avatarUrl})`:`background:${color}`;}
+const FRAMES=[
+  {id:'gold',   name:'Золото',   cost:10,  css:'box-shadow:0 0 0 3px #fbbf24,0 0 12px rgba(251,191,36,.7)'},
+  {id:'purple', name:'Аметист',  cost:20,  css:'box-shadow:0 0 0 3px #a855f7,0 0 12px rgba(168,85,247,.7)'},
+  {id:'blue',   name:'Сапфир',   cost:30,  css:'box-shadow:0 0 0 3px #38bdf8,0 0 12px rgba(56,189,248,.7)'},
+  {id:'fire',   name:'Огонь',    cost:50,  css:'animation:frame-fire 1.2s ease-in-out infinite alternate'},
+  {id:'rainbow',name:'Радуга',   cost:80,  css:'animation:frame-rainbow 3s linear infinite'},
+];
+function frameExtraCss(frameId){const f=FRAMES.find(x=>x.id===frameId);return f?f.css:'';}
+function avStyle(color,avatarUrl,frame=''){
+  const bg=avatarUrl?`background:#000;background-image:url(${avatarUrl})`:`background:${color}`;
+  const fr=frame?`;${frameExtraCss(frame)}`:'';
+  return bg+fr;
+}
 function avInner(name,avatarUrl){return avatarUrl?'':initials(name);}
 function pickAvatar(inp){
   const file=inp.files[0]; if(!file)return;
@@ -1144,6 +1182,35 @@ function ft(ts){const d=new Date(ts),now=new Date(),pad=n=>String(n).padStart(2,
 function fdh(ts){const d=new Date(ts),now=new Date(),yes=new Date(Date.now()-864e5);if(d.toDateString()===now.toDateString())return'Сегодня';if(d.toDateString()===yes.toDateString())return'Вчера';const m=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];return d.getDate()+' '+m[d.getMonth()]+(d.getFullYear()!==now.getFullYear()?' '+d.getFullYear():'');}
 function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function v(id){return(document.getElementById(id)||{}).value||'';}
+function openFrameShop(){
+  document.getElementById('fs-coins').textContent=me?.coins||0;
+  const list=document.getElementById('fs-list');
+  const owned=me?.ownedFrames||[];
+  const active=me?.frame||'';
+  list.innerHTML=FRAMES.map(f=>{
+    const isOwned=owned.includes(f.id);
+    const isActive=active===f.id;
+    const canAfford=(me?.coins||0)>=f.cost;
+    const prevStyle=`${avStyle('#6366f1','',f.id)};background-size:cover;background-position:center`;
+    let btn;
+    if(isActive){
+      btn=`<button class="fs-btn remove" onclick="equipFrame('')">Снять</button>`;
+    } else if(isOwned){
+      btn=`<button class="fs-btn equip" onclick="equipFrame('${f.id}')">Надеть</button>`;
+    } else {
+      btn=`<button class="fs-btn buy" ${canAfford?'':'disabled'} onclick="buyFrame('${f.id}')">${f.cost} 🪙</button>`;
+    }
+    return `<div class="fs-item">
+      <div class="fs-prev" style="${prevStyle}">А</div>
+      <div class="fs-name">${f.name}</div>
+      ${isOwned?`<div class="fs-owned">${isActive?'Активна':'Есть'}</div>`:`<div class="fs-cost">${f.cost} монет</div>`}
+      ${btn}
+    </div>`;
+  }).join('');
+  OM('fsm');
+}
+function buyFrame(frameId){emit('buy_frame',{frameId});}
+function equipFrame(frameId){emit('equip_frame',{frameId});}
 function updateCoins(n){
   const b=document.getElementById('coins-badge');
   const c=document.getElementById('coins-count');
@@ -1292,7 +1359,7 @@ function postCardHtml(p){
   const commText=p.commentCount>0?(p.commentCount===1?'1 комментарий':`${p.commentCount} комментариев`):'Написать комментарий';
   return `<div class="post-card" id="post_${p.id}">
     <div class="post-ph">
-      <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
+      <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">${esc(u.displayName||'?')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
     </div>
     <img class="post-img" src="${p.mediaData}" loading="lazy" onclick="openImageFull('${p.id}')">
@@ -1375,7 +1442,7 @@ function renderComments(postId){
   el.innerHTML=list.map(c=>{
     const u=S.users[c.userId]||{};
     return `<div class="cmrow">
-      <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
+      <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div class="cmtext">
         <div class="cmname">${esc(u.displayName||'?')}</div>
         <div class="cmbody">${esc(c.text)}</div>
@@ -1393,7 +1460,7 @@ function appendComment(c){
   if(empty) empty.remove();
   const u=S.users[c.userId]||{};
   el.insertAdjacentHTML('beforeend',`<div class="cmrow">
-    <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
+    <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
     <div class="cmtext">
       <div class="cmname">${esc(u.displayName||'?')}</div>
       <div class="cmbody">${esc(c.text)}</div>
@@ -1501,7 +1568,7 @@ function doSearch(q){
       const online=S.online.has(u.id);
       const sub=online?'В сети':(u.status||('@'+u.username));
       return `<div class="search-row" onclick="searchOpenUser('${u.id}')">
-        <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'')};width:40px;height:40px;font-size:14px;flex-shrink:0">
+        <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:40px;height:40px;font-size:14px;flex-shrink:0">
           ${avInner(u.displayName||'?',u.avatarUrl||'')}
           ${online?'<div class="online-dot"></div>':''}
         </div>

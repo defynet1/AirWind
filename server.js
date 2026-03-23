@@ -59,6 +59,8 @@ async function initDB() {
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS coins INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS frame TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_frames TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
 
@@ -125,6 +127,8 @@ async function createUser(username, displayName, password) {
 async function getUserByUsername(u) { return dbGet(`SELECT * FROM users WHERE username=$1`, [u]); }
 async function getUserById(id)      { return dbGet(`SELECT * FROM users WHERE id=$1`, [id]); }
 async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER BY display_name`); }
+const FRAME_COSTS = { gold:10, purple:20, blue:30, fire:50, rainbow:80 };
+
 function safe(u) {
   if (!u) return null;
   return {
@@ -132,7 +136,9 @@ function safe(u) {
     displayName: u.display_name, avatarColor: u.avatar_color,
     avatarUrl: u.avatar_url || '',
     status: u.status, lastSeen: Number(u.last_seen), createdAt: Number(u.created_at),
-    coins: Number(u.coins || 0)
+    coins: Number(u.coins || 0),
+    frame: u.frame || '',
+    ownedFrames: JSON.parse(u.owned_frames || '[]')
   };
 }
 async function addCoins(userId, amount) {
@@ -745,6 +751,38 @@ wss.on('connection', ws => {
       await dbRun(`DELETE FROM channel_post_reactions WHERE post_id=$1`, [payload.postId]);
       await bcastChannel(cpDel.channel_id, {type:'channel_post_deleted',
         payload:{postId:payload.postId, channelId:cpDel.channel_id}});
+
+    } else if (type === 'buy_frame') {
+      if (!inf) return;
+      const { frameId } = payload;
+      const cost = FRAME_COSTS[frameId];
+      if (!cost) return;
+      const u = await getUserById(inf.userId);
+      if (!u) return;
+      const owned = JSON.parse(u.owned_frames || '[]');
+      if (owned.includes(frameId)) {
+        // already owned — just equip
+        await dbRun(`UPDATE users SET frame=$1 WHERE id=$2`, [frameId, inf.userId]);
+      } else {
+        if (Number(u.coins || 0) < cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
+        owned.push(frameId);
+        await dbRun(`UPDATE users SET coins=coins-$1, owned_frames=$2, frame=$3 WHERE id=$4`,
+          [cost, JSON.stringify(owned), frameId, inf.userId]);
+      }
+      const updated = await getUserById(inf.userId);
+      bcastAll({type:'user_updated', payload:{user:safe(updated)}});
+
+    } else if (type === 'equip_frame') {
+      if (!inf) return;
+      const { frameId } = payload; // '' to remove frame
+      if (frameId) {
+        const u = await getUserById(inf.userId);
+        const owned = JSON.parse(u?.owned_frames || '[]');
+        if (!owned.includes(frameId)) return;
+      }
+      await dbRun(`UPDATE users SET frame=$1 WHERE id=$2`, [frameId||'', inf.userId]);
+      const updated = await getUserById(inf.userId);
+      bcastAll({type:'user_updated', payload:{user:safe(updated)}});
     }
   });
 

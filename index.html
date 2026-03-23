@@ -1364,7 +1364,8 @@ function viewUserProfile(userId){
   document.getElementById('upc-badge').innerHTML=bd?`<img src="${svgUrl(bd.svg)}" style="width:18px;height:18px;vertical-align:middle"> ${bd.name}`:'—';
   const acts=document.getElementById('upc-actions');
   if(u.id===me?.id){
-    acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');openProfile()">Редактировать</button>`;
+    acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');openProfile()">Редактировать</button>`
+      +(me.isAdmin?`<button class="mbtn" style="background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)" onclick="CM('upc');openAdminPanel()">🛡️ Админ-панель</button>`:'');
   } else {
     acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');startChatWith('${u.id}')">Написать</button>`;
   }

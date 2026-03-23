@@ -161,7 +161,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .psec input{width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:9px;padding:9px 13px;color:var(--tx);font-family:var(--font);font-size:14px;outline:none;transition:.2s}
 .psec input:focus{border-color:var(--ac)}
 .pavr{display:flex;align-items:center;gap:13px;margin-bottom:20px}
-.pav{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0}
+.pav{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;background-size:cover;background-position:center;cursor:pointer;position:relative;overflow:hidden}
+.pav:hover::after{content:'📷';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);font-size:22px}
+.av{background-size:cover;background-position:center}
 .pui .pn{font-size:16px;font-weight:600}
 .pui .pu{font-size:12px;color:var(--tx2);font-family:var(--mono)}
 .dbtn{width:100%;padding:10px;border-radius:9px;border:1px solid rgba(255,92,106,.3);background:rgba(255,92,106,.07);color:var(--red);font-family:var(--font);font-size:14px;font-weight:500;cursor:pointer;transition:.12s;margin-top:7px}
@@ -271,7 +273,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
     <button class="mclose" onclick="CM('pm')">✕</button>
     <div class="mt">Профиль</div>
     <div class="pavr">
-      <div class="pav" id="pav"></div>
+      <div class="pav" id="pav" onclick="document.getElementById('avfile').click()"></div>
+      <input type="file" id="avfile" accept="image/*" style="display:none" onchange="pickAvatar(this)">
       <div class="pui"><div class="pn" id="pdn"></div><div class="pu" id="pun"></div></div>
     </div>
     <div class="psec"><label>Имя</label><input id="pni" type="text"></div>
@@ -287,7 +290,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 // ════════════════════════════════════
 //  STATE
 // ════════════════════════════════════
-let ws=null, me=null, openChatId=null, selUsers=[], editMsgId=null;
+let ws=null, me=null, openChatId=null, selUsers=[], editMsgId=null, pendingAvatarUrl=null;
 const S={users:{},chats:{},msgs:{},unread:{},online:new Set()};
 
 // ════════════════════════════════════
@@ -458,8 +461,10 @@ function renderList(filter=''){
     const prev=last?(last.senderId===me?.id?'Вы: ':'')+last.text:'Нет сообщений';
     const u=S.unread[c.id]||0;
     const isOnline=!c.isGroup&&c.members&&S.online.has(c.members.find(id=>id!==me?.id));
+    const otherUser=!c.isGroup&&c.members?S.users[c.members.find(id=>id!==me?.id)]:null;
+    const cAvUrl=otherUser?.avatarUrl||'';
     return `<div class="ci${c.id===openChatId?' on':''}" onclick="openChat('${c.id}')">
-      <div class="av" style="background:${col}">${ini}${isOnline?'<div class="online-dot"></div>':''}</div>
+      <div class="av" style="${avStyle(col,cAvUrl)}">${avInner(nm,cAvUrl)}${isOnline?'<div class="online-dot"></div>':''}</div>
       <div class="cmeta">
         <div class="cnrow"><div class="cname">${esc(nm)}</div><div class="ctime">${last?ft(last.ts):''}</div></div>
         <div class="cprev"><span>${esc(prev)}</span>${u?`<span class="ubadge">${u>99?'99+':u}</span>`:''}</div>
@@ -495,7 +500,10 @@ function updateHeader(id){
   }
   const c=S.chats[id];if(!c)return;
   const nm=chatName(c);
-  av.textContent=initials(nm);av.style.background=chatColor(c);av.style.borderRadius='50%';
+  const otherU=!c.isGroup&&c.members?S.users[c.members.find(id=>id!==me?.id)]:null;
+  const hAvUrl=otherU?.avatarUrl||'';
+  av.textContent=avInner(nm,hAvUrl);
+  av.style.cssText=`${avStyle(chatColor(c),hAvUrl)};background-size:cover;background-position:center;border-radius:50%`;
   document.getElementById('chname').textContent=nm;
   if(c.isGroup){
     document.getElementById('chsub').textContent=c.members.length+' участников';
@@ -629,7 +637,7 @@ function openNewChat(){
   const others=Object.values(S.users).filter(u=>u.id!==me?.id);
   document.getElementById('ulist').innerHTML=others.length
     ?others.map(u=>`<div class="urow" id="ur_${u.id}" onclick="togU('${u.id}')">
-        <div class="av" style="background:${u.avatarColor};width:36px;height:36px;font-size:13px">${initials(u.displayName)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
+        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl)};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
         <div class="uri"><div class="urn">${esc(u.displayName)}</div><div class="uruu">@${esc(u.username)}</div></div>
         <span class="chk">✓</span></div>`).join('')
     :'<div style="padding:18px;text-align:center;color:var(--tx3);font-size:13px">Нет других пользователей</div>';
@@ -661,8 +669,10 @@ function startChat(){
 //  PROFILE
 // ════════════════════════════════════
 function openProfile(){
-  document.getElementById('pav').textContent=initials(me.displayName);
-  document.getElementById('pav').style.background=me.avatarColor;
+  pendingAvatarUrl=null;
+  const pav=document.getElementById('pav');
+  pav.textContent=avInner(me.displayName,me.avatarUrl);
+  pav.style.cssText=`width:56px;height:56px;${avStyle(me.avatarColor,me.avatarUrl)};background-size:cover;background-position:center;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer;position:relative;overflow:hidden`;
   document.getElementById('pdn').textContent=me.displayName;
   document.getElementById('pun').textContent='@'+me.username;
   document.getElementById('pni').value=me.displayName;
@@ -672,7 +682,9 @@ function openProfile(){
 function saveProfile(){
   const dn=v('pni').trim(),st=v('psi').trim();
   if(!dn)return;
-  emit('update_profile',{displayName:dn,status:st});
+  const upd={displayName:dn,status:st};
+  if(pendingAvatarUrl!==null){upd.avatarUrl=pendingAvatarUrl;pendingAvatarUrl=null;}
+  emit('update_profile',upd);
   CM('pm');
 }
 
@@ -689,6 +701,25 @@ document.querySelectorAll('.mo').forEach(el=>el.addEventListener('click',e=>{if(
 function chatName(c){if(c.isGroup)return c.name||'Группа';const o=c.members?.find(id=>id!==me?.id);return S.users[o]?.displayName||'Пользователь';}
 function chatColor(c){if(c.isGroup)return'#7c5cfc';const o=c.members?.find(id=>id!==me?.id);return S.users[o]?.avatarColor||'#555';}
 function uName(id){return S.users[id]?.displayName||'?';}
+function avStyle(color,avatarUrl){return avatarUrl?`background:#000;background-image:url(${avatarUrl})`:`background:${color}`;}
+function avInner(name,avatarUrl){return avatarUrl?'':initials(name);}
+function pickAvatar(inp){
+  const file=inp.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas'); c.width=c.height=200;
+      c.getContext('2d').drawImage(img,0,0,200,200);
+      pendingAvatarUrl=c.toDataURL('image/jpeg',0.85);
+      const pav=document.getElementById('pav');
+      pav.textContent=''; pav.style.cssText+=`;background-image:url(${pendingAvatarUrl});background-size:cover;background-position:center`;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
 function initials(n){if(!n)return'?';const p=n.trim().split(/\s+/);return p.length>=2?(p[0][0]+p[1][0]).toUpperCase():n[0].toUpperCase();}
 function ft(ts){const d=new Date(ts),now=new Date(),pad=n=>String(n).padStart(2,'0');if(d.toDateString()===now.toDateString())return pad(d.getHours())+':'+pad(d.getMinutes());if(d.getFullYear()===now.getFullYear())return pad(d.getDate())+'.'+pad(d.getMonth()+1);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
 function fdh(ts){const d=new Date(ts),now=new Date(),yes=new Date(Date.now()-864e5);if(d.toDateString()===now.toDateString())return'Сегодня';if(d.toDateString()===yes.toDateString())return'Вчера';const m=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];return d.getDate()+' '+m[d.getMonth()]+(d.getFullYear()!==now.getFullYear()?' '+d.getFullYear():'');}

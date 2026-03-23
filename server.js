@@ -57,6 +57,8 @@ async function initDB() {
     PRIMARY KEY (msg_id, user_id)
   )`);
 
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''`);
+
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
     await pool.query(`INSERT INTO chats(id,is_group,name,created_at) VALUES('__global__',1,'Общий чат',$1)`, [Date.now()]);
@@ -82,6 +84,7 @@ function safe(u) {
   return {
     id: u.id, username: u.username,
     displayName: u.display_name, avatarColor: u.avatar_color,
+    avatarUrl: u.avatar_url || '',
     status: u.status, lastSeen: Number(u.last_seen), createdAt: Number(u.created_at)
   };
 }
@@ -303,6 +306,7 @@ wss.on('connection', ws => {
       if (!inf) return;
       if (payload.displayName) await dbRun(`UPDATE users SET display_name=$1 WHERE id=$2`,[payload.displayName,inf.userId]);
       if (payload.status!==undefined) await dbRun(`UPDATE users SET status=$1 WHERE id=$2`,[payload.status,inf.userId]);
+      if (payload.avatarUrl!==undefined) await dbRun(`UPDATE users SET avatar_url=$1 WHERE id=$2`,[payload.avatarUrl,inf.userId]);
       await dbRun(`UPDATE users SET last_seen=$1 WHERE id=$2`,[Date.now(),inf.userId]);
       const u = safe(await getUserById(inf.userId));
       send(ws,{type:'profile_updated',payload:{user:u}});

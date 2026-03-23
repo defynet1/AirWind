@@ -320,6 +320,24 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 @keyframes frame-electro{0%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}25%{box-shadow:0 0 0 2px #67e8f9,0 0 4px rgba(103,232,249,.3)}50%{box-shadow:0 0 0 4px #06b6d4,0 0 20px rgba(6,182,212,.9)}75%{box-shadow:0 0 0 2px #67e8f9,0 0 6px rgba(103,232,249,.4)}100%{box-shadow:0 0 0 3px #22d3ee,0 0 12px rgba(34,211,238,.6)}}
 @keyframes frame-lava{0%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}33%{box-shadow:0 0 0 3px #f97316,0 0 18px rgba(249,115,22,.8)}66%{box-shadow:0 0 0 3px #fbbf24,0 0 14px rgba(251,191,36,.7)}100%{box-shadow:0 0 0 3px #ef4444,0 0 14px rgba(239,68,68,.7)}}
 @keyframes frame-cosmos{0%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}25%{box-shadow:0 0 0 3px #c084fc,0 0 20px rgba(192,132,252,.8)}50%{box-shadow:0 0 0 3px #f0abfc,0 0 24px rgba(240,171,252,.9)}75%{box-shadow:0 0 0 3px #67e8f9,0 0 20px rgba(103,232,249,.8)}100%{box-shadow:0 0 0 3px #818cf8,0 0 16px rgba(129,140,248,.7)}}
+/* User Profile Card */
+#upc .md{padding:0;overflow:hidden;width:380px;border-radius:18px}
+.upc-banner{height:130px;position:relative;background:linear-gradient(135deg,var(--ac),var(--ac2));overflow:hidden}
+.upc-banner canvas{width:100%;height:100%;display:block}
+.upc-avwrap{position:relative;display:flex;justify-content:center;margin-top:-46px;z-index:2}
+.upc-av{width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;background-size:cover;background-position:center;flex-shrink:0;position:relative;overflow:hidden}
+.upc-body{padding:0 24px 24px;text-align:center}
+.upc-name{font-size:18px;font-weight:600;margin-top:10px;letter-spacing:-.3px;display:flex;align-items:center;justify-content:center;gap:4px}
+.upc-username{font-size:13px;color:var(--tx2);margin-top:2px}
+.upc-status{font-size:13px;color:var(--tx3);margin-top:6px;font-style:italic}
+.upc-online{font-size:12px;margin-top:6px;font-weight:500}
+.upc-online.on{color:var(--green)} .upc-online.off{color:var(--tx3)}
+.upc-stats{display:flex;justify-content:center;gap:24px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
+.upc-stat{text-align:center}
+.upc-stat-val{font-size:16px;font-weight:600;color:var(--tx)}
+.upc-stat-label{font-size:11px;color:var(--tx3);margin-top:1px}
+.upc-actions{display:flex;gap:8px;margin-top:16px;justify-content:center}
+.upc-actions .mbtn{flex:1;max-width:160px}
 /* Settings */
 #stm .md{max-width:420px}
 .set-section{margin-bottom:18px}
@@ -390,7 +408,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="ibtn" title="Новый чат" onclick="openNewChat()">✏️</button>
       <div id="coins-badge" style="display:none;align-items:center;gap:3px;background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.25);border-radius:20px;padding:3px 8px;font-size:12px;font-weight:600;color:#fbbf24;cursor:default;flex-shrink:0" title="Ваши монеты">🪙 <span id="coins-count">0</span></div>
       <button class="ibtn" title="Настройки" onclick="openSettings()">⚙️</button>
-      <button class="ibtn" title="Профиль" onclick="openProfile()">👤</button>
+      <button class="ibtn" title="Профиль" onclick="if(me)viewUserProfile(me.id)">👤</button>
     </div>
     <div class="stabs">
       <button class="stab on" id="stab-chats" onclick="switchSideTab('chats')">💬 Чаты</button>
@@ -421,7 +439,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     </div>
     <div id="achat" class="hidden" style="display:flex;flex-direction:column;height:100%">
       <div class="ch">
-        <div class="av" id="chav" style="border-radius:50%"></div>
+        <div class="av" id="chav" style="border-radius:50%;cursor:pointer"></div>
         <div class="chi">
           <div class="chname" id="chname"></div>
           <div class="chsub" id="chsub"></div>
@@ -593,6 +611,27 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div class="mact">
       <button class="mbtn g" onclick="CM('ncm')">Отмена</button>
       <button class="mbtn p" id="scbtn" onclick="startChat()">Начать чат</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Profile Card -->
+<div class="mo" id="upc">
+  <div class="md">
+    <button class="mclose" onclick="CM('upc')" style="position:absolute;right:12px;top:12px;z-index:5;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.5)">✕</button>
+    <div class="upc-banner"><canvas id="upc-canvas"></canvas></div>
+    <div class="upc-avwrap"><div class="upc-av" id="upc-av"></div></div>
+    <div class="upc-body">
+      <div class="upc-name" id="upc-name"></div>
+      <div class="upc-username" id="upc-uname"></div>
+      <div class="upc-status" id="upc-status"></div>
+      <div class="upc-online" id="upc-online"></div>
+      <div class="upc-stats">
+        <div class="upc-stat"><div class="upc-stat-val" id="upc-coins">0</div><div class="upc-stat-label">Монеты</div></div>
+        <div class="upc-stat"><div class="upc-stat-val" id="upc-frame">—</div><div class="upc-stat-label">Рамка</div></div>
+        <div class="upc-stat"><div class="upc-stat-val" id="upc-badge">—</div><div class="upc-stat-label">Статус</div></div>
+      </div>
+      <div class="upc-actions" id="upc-actions"></div>
     </div>
   </div>
 </div>
@@ -988,8 +1027,9 @@ function renderList(filter=''){
     const isOnline=!c.isGroup&&c.members&&S.online.has(c.members.find(id=>id!==me?.id));
     const otherUser=!c.isGroup&&c.members?S.users[c.members.find(id=>id!==me?.id)]:null;
     const cAvUrl=otherUser?.avatarUrl||'';
+    const avClick=otherUser?` onclick="event.stopPropagation();viewUserProfile('${otherUser.id}')"`:''  ;
     return `<div class="ci${c.id===openChatId?' on':''}" onclick="openChat('${c.id}')">
-      <div class="av" style="${avStyle(col,cAvUrl,otherUser?.frame||'')}">${avInner(nm,cAvUrl)}${isOnline?'<div class="online-dot"></div>':''}</div>
+      <div class="av" style="${avStyle(col,cAvUrl,otherUser?.frame||'')};cursor:pointer"${avClick}>${avInner(nm,cAvUrl)}${isOnline?'<div class="online-dot"></div>':''}</div>
       <div class="cmeta">
         <div class="cnrow"><div class="cname">${esc(nm)}</div><div class="ctime">${last?ft(last.ts):''}</div></div>
         <div class="cprev"><span>${esc(prev)}</span>${u?`<span class="ubadge">${u>99?'99+':u}</span>`:''}</div>
@@ -1017,6 +1057,7 @@ function openChat(id){
 }
 function updateHeader(id){
   const av=document.getElementById('chav');
+  av.onclick=null;
   if(id==='__global__'){
     av.textContent='🌐';av.style.background='linear-gradient(135deg,#5b8cff,#7c5cfc)';av.style.borderRadius='13px';
     document.getElementById('chname').textContent='Общий чат';
@@ -1028,7 +1069,8 @@ function updateHeader(id){
   const otherU=!c.isGroup&&c.members?S.users[c.members.find(id=>id!==me?.id)]:null;
   const hAvUrl=otherU?.avatarUrl||'';
   av.textContent=avInner(nm,hAvUrl);
-  av.style.cssText=`${avStyle(chatColor(c),hAvUrl,otherU?.frame||'')};background-size:cover;background-position:center;border-radius:50%`;
+  av.style.cssText=`${avStyle(chatColor(c),hAvUrl,otherU?.frame||'')};background-size:cover;background-position:center;border-radius:50%;cursor:pointer`;
+  if(otherU)av.onclick=()=>viewUserProfile(otherU.id);
   document.getElementById('chname').textContent=nm;
   if(c.isGroup){
     document.getElementById('chsub').textContent=c.members.length+' участников';
@@ -1074,7 +1116,7 @@ function bubbleHtml(m,isGroup){
   const sent=m.senderId===me?.id;
   const time=`${String(new Date(m.ts).getHours()).padStart(2,'0')}:${String(new Date(m.ts).getMinutes()).padStart(2,'0')}`;
   const read=m.readBy.some(id=>id!==m.senderId);
-  const senderRow=(!sent&&isGroup)?`<div class="msender" style="color:${S.users[m.senderId]?.avatarColor||'var(--ac)'};">${esc(uName(m.senderId))}${badgeHtml(S.users[m.senderId]?.statusBadge||'')}</div>`:'';
+  const senderRow=(!sent&&isGroup)?`<div class="msender" style="color:${S.users[m.senderId]?.avatarColor||'var(--ac)'};cursor:pointer" onclick="viewUserProfile('${m.senderId}')">${esc(uName(m.senderId))}${badgeHtml(S.users[m.senderId]?.statusBadge||'')}</div>`:'';
   const actions=m.deleted?'':`<div class="msg-actions">
     ${sent?`<button class="mac" title="Редактировать" onclick="startEdit('${m.id}')">✏️</button>`:''}
     ${sent?`<button class="mac" title="Удалить" onclick="delMsg('${m.id}')">🗑️</button>`:''}
@@ -1181,7 +1223,7 @@ function openNewChat(){
   const others=Object.values(S.users).filter(u=>u.id!==me?.id);
   document.getElementById('ulist').innerHTML=others.length
     ?others.map(u=>`<div class="urow" id="ur_${u.id}" onclick="togU('${u.id}')">
-        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
+        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px;cursor:pointer" onclick="event.stopPropagation();viewUserProfile('${u.id}')">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
         <div class="uri"><div class="urn">${esc(u.displayName)}</div><div class="uruu">@${esc(u.username)}</div></div>
         <span class="chk">✓</span></div>`).join('')
     :'<div style="padding:18px;text-align:center;color:var(--tx3);font-size:13px">Нет других пользователей</div>';
@@ -1207,6 +1249,69 @@ function startChat(){
     emit('create_group_chat',{name:v('gni').trim()||'Группа',memberIds:[me.id,...selUsers]});
   }
   CM('ncm');
+}
+
+// ════════════════════════════════════
+//  USER PROFILE CARD
+// ════════════════════════════════════
+function drawBanner(canvas, seed){
+  const w=canvas.width=canvas.offsetWidth*2||760;
+  const h=canvas.height=canvas.offsetHeight*2||260;
+  const ctx=canvas.getContext('2d');
+  const rng=(function(s){return function(){s=Math.imul(s^(s>>>16),0x45d9f3b);s=Math.imul(s^(s>>>13),0x45d9f3b);return((s^=s>>>16)>>>0)/4294967296;};})(seed);
+  const hue1=rng()*360, hue2=(hue1+40+rng()*80)%360;
+  const g=ctx.createLinearGradient(0,0,w,h);
+  g.addColorStop(0,`hsl(${hue1},70%,35%)`);
+  g.addColorStop(1,`hsl(${hue2},60%,25%)`);
+  ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  for(let i=0;i<6;i++){
+    const x=rng()*w, y=rng()*h, r=40+rng()*80;
+    const cg=ctx.createRadialGradient(x,y,0,x,y,r);
+    cg.addColorStop(0,`hsla(${rng()*360},80%,60%,.25)`);
+    cg.addColorStop(1,'transparent');
+    ctx.fillStyle=cg;ctx.fillRect(x-r,y-r,r*2,r*2);
+  }
+  for(let i=0;i<12;i++){
+    ctx.beginPath();
+    ctx.arc(rng()*w,rng()*h,2+rng()*4,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${.08+rng()*.12})`;
+    ctx.fill();
+  }
+}
+function viewUserProfile(userId){
+  const u=S.users[userId];
+  if(!u)return;
+  const canvas=document.getElementById('upc-canvas');
+  const seed=Array.from(u.id).reduce((a,c)=>a+c.charCodeAt(0),0);
+  requestAnimationFrame(()=>drawBanner(canvas,seed));
+  const av=document.getElementById('upc-av');
+  av.textContent=avInner(u.displayName,u.avatarUrl);
+  av.style.cssText=`width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};background-size:cover;background-position:center`;
+  document.getElementById('upc-name').innerHTML=esc(u.displayName)+badgeHtml(u.statusBadge||'');
+  document.getElementById('upc-uname').textContent='@'+u.username;
+  document.getElementById('upc-status').textContent=u.status||'';
+  document.getElementById('upc-status').style.display=u.status?'':'none';
+  const online=S.online.has(u.id);
+  const onEl=document.getElementById('upc-online');
+  onEl.textContent=online?'В сети':'Не в сети';
+  onEl.className='upc-online '+(online?'on':'off');
+  document.getElementById('upc-coins').textContent=u.coins>=1e6?(u.coins/1e6).toFixed(u.coins%1e6===0?0:1)+'М':u.coins>=1e3?(u.coins/1e3).toFixed(u.coins%1e3===0?0:1)+'К':u.coins||0;
+  const fr=FRAMES.find(f=>f.id===u.frame);
+  document.getElementById('upc-frame').textContent=fr?fr.name:'—';
+  const bd=BADGES.find(b=>b.id===u.statusBadge);
+  document.getElementById('upc-badge').innerHTML=bd?`<img src="${svgUrl(bd.svg)}" style="width:18px;height:18px;vertical-align:middle"> ${bd.name}`:'—';
+  const acts=document.getElementById('upc-actions');
+  if(u.id===me?.id){
+    acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');openProfile()">Редактировать</button>`;
+  } else {
+    acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');startChatWith('${u.id}')">Написать</button>`;
+  }
+  OM('upc');
+}
+function startChatWith(uid){
+  const ex=Object.values(S.chats).find(c=>!c.isGroup&&c.members?.includes(me.id)&&c.members?.includes(uid));
+  if(ex){openChat(ex.id);return;}
+  emit('create_private_chat',{userId:uid});
 }
 
 // ════════════════════════════════════

@@ -83,6 +83,25 @@ async function initDB() {
     post_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL,
     PRIMARY KEY (post_id, user_id)
   )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS channels (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL,
+    description TEXT DEFAULT '', owner_id TEXT NOT NULL,
+    avatar_color TEXT DEFAULT '#6366f1', created_at BIGINT DEFAULT 0
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS channel_members (
+    channel_id TEXT NOT NULL, user_id TEXT NOT NULL,
+    role TEXT DEFAULT 'member', joined_at BIGINT DEFAULT 0,
+    PRIMARY KEY (channel_id, user_id)
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS channel_posts (
+    id TEXT PRIMARY KEY, channel_id TEXT NOT NULL,
+    text TEXT DEFAULT '', media TEXT DEFAULT '',
+    ts BIGINT NOT NULL, edited INTEGER DEFAULT 0
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS channel_post_reactions (
+    post_id TEXT NOT NULL, user_id TEXT NOT NULL, emoji TEXT NOT NULL,
+    PRIMARY KEY (post_id, user_id)
+  )`);
 
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
@@ -278,6 +297,73 @@ async function getPostComments(postId) {
   return dbAll(`SELECT * FROM post_comments WHERE post_id=$1 ORDER BY ts ASC`, [postId]);
 }
 
+// ─── Channel ops ──────────────────────────────────
+async function getChanPostReactionsMap(postIds) {
+  if (!postIds.length) return {};
+  const rows = await dbAll(
+    `SELECT post_id, emoji, STRING_AGG(user_id, ',') as user_ids
+     FROM channel_post_reactions WHERE post_id = ANY($1::text[]) GROUP BY post_id, emoji`,
+    [postIds]
+  );
+  const map = {};
+  for (const r of rows) {
+    if (!map[r.post_id]) map[r.post_id] = {};
+    map[r.post_id][r.emoji] = r.user_ids.split(',').filter(Boolean);
+  }
+  return map;
+}
+function toChanPost(p, reactMap = {}) {
+  return { id: p.id, channelId: p.channel_id, text: p.text || '',
+    media: p.media || '', ts: Number(p.ts), edited: !!p.edited,
+    reactions: reactMap[p.id] || {} };
+}
+async function getChanPostById(id) {
+  const p = await dbGet(`SELECT * FROM channel_posts WHERE id=$1`, [id]);
+  if (!p) return null;
+  const rm = await getChanPostReactionsMap([id]);
+  return toChanPost(p, rm);
+}
+async function getChannelPosts(channelId, limit = 60, before = null) {
+  const p = [channelId];
+  let sql = `SELECT * FROM channel_posts WHERE channel_id=$1`;
+  if (before) { p.push(before); sql += ` AND ts<$${p.length}`; }
+  p.push(limit);
+  sql += ` ORDER BY ts DESC LIMIT $${p.length}`;
+  const rows = (await dbAll(sql, p)).reverse();
+  if (!rows.length) return [];
+  const rm = await getChanPostReactionsMap(rows.map(r => r.id));
+  return rows.map(r => toChanPost(r, rm));
+}
+function toChan(c) {
+  return { id: c.id, name: c.name, description: c.description || '',
+    ownerId: c.owner_id, avatarColor: c.avatar_color || '#6366f1',
+    memberCount: Number(c.member_count || 0), isMember: !!Number(c.is_member || 0),
+    isOwner: (c.my_role || '') === 'owner', createdAt: Number(c.created_at) };
+}
+async function getAllChannelsForUser(userId) {
+  const rows = await dbAll(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id)::int as member_count,
+      (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id AND user_id=$1)::int as is_member,
+      (SELECT role FROM channel_members WHERE channel_id=c.id AND user_id=$1) as my_role
+    FROM channels c ORDER BY c.created_at DESC`, [userId]);
+  return rows.map(toChan);
+}
+async function getChannelForUser(channelId, userId) {
+  const c = await dbGet(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id)::int as member_count,
+      (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id AND user_id=$1)::int as is_member,
+      (SELECT role FROM channel_members WHERE channel_id=c.id AND user_id=$1) as my_role
+    FROM channels c WHERE c.id=$2`, [userId, channelId]);
+  return c ? toChan(c) : null;
+}
+async function bcastChannel(channelId, d) {
+  const subs = await dbAll(`SELECT user_id FROM channel_members WHERE channel_id=$1`, [channelId]);
+  const subSet = new Set(subs.map(s => s.user_id));
+  clients.forEach((inf, w) => { if (subSet.has(inf.userId)) send(w, d); });
+}
+
 // ─── Uploads ──────────────────────────────────────
 const UPLOADS_DIR = path.join(process.env.DATA_DIR || __dirname, 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -388,6 +474,7 @@ wss.on('connection', ws => {
       bcastAll({type:'user_joined',payload:{user:safe(user)}},ws);
       bcastAll({type:'online',payload:{userIds:onlineIds()}});
       send(ws,{type:'feed',payload:{posts:await getFeed(20),reset:true}});
+      send(ws,{type:'channels_list',payload:{channels:await getAllChannelsForUser(user.id)}});
       console.log('register:', username);
 
     } else if (type === 'login') {
@@ -407,6 +494,7 @@ wss.on('connection', ws => {
       send(ws,{type:'online',payload:{userIds:onlineIds()}});
       bcastAll({type:'online',payload:{userIds:onlineIds()}},ws);
       send(ws,{type:'feed',payload:{posts:await getFeed(20),reset:true}});
+      send(ws,{type:'channels_list',payload:{channels:await getAllChannelsForUser(user.id)}});
       console.log('login:', username);
 
     } else if (type === 'send_message') {
@@ -536,6 +624,90 @@ wss.on('connection', ws => {
       if (!inf) return;
       const rows = await getPostComments(payload.postId);
       send(ws,{type:'comments',payload:{postId:payload.postId,comments:rows.map(c=>({id:c.id,postId:c.post_id,userId:c.user_id,text:c.text,ts:Number(c.ts)}))}});
+
+    // ── CHANNELS ──────────────────────────────────
+    } else if (type === 'create_channel') {
+      if (!inf) return;
+      const { name, description } = payload;
+      if (!name?.trim()) return;
+      const cid = newId(), now = Date.now();
+      const col = COLORS[Math.floor(Math.random()*COLORS.length)];
+      await dbRun(`INSERT INTO channels(id,name,description,owner_id,avatar_color,created_at) VALUES($1,$2,$3,$4,$5,$6)`,
+        [cid, name.trim(), description?.trim()||'', inf.userId, col, now]);
+      await dbRun(`INSERT INTO channel_members(channel_id,user_id,role,joined_at) VALUES($1,$2,'owner',$3)`,
+        [cid, inf.userId, now]);
+      const chan = await getChannelForUser(cid, inf.userId);
+      bcastAll({type:'channel_created', payload:{channel:chan}});
+
+    } else if (type === 'join_channel') {
+      if (!inf) return;
+      await dbRun(`INSERT INTO channel_members(channel_id,user_id,role,joined_at) VALUES($1,$2,'member',$3) ON CONFLICT DO NOTHING`,
+        [payload.channelId, inf.userId, Date.now()]);
+      const chan = await getChannelForUser(payload.channelId, inf.userId);
+      if (!chan) return;
+      send(ws,{type:'channel_joined', payload:{channel:chan}});
+      bcastAll({type:'channel_updated', payload:{channel:chan}});
+
+    } else if (type === 'leave_channel') {
+      if (!inf) return;
+      const own = await dbGet(`SELECT owner_id FROM channels WHERE id=$1`, [payload.channelId]);
+      if (own?.owner_id === inf.userId) return;
+      await dbRun(`DELETE FROM channel_members WHERE channel_id=$1 AND user_id=$2`, [payload.channelId, inf.userId]);
+      const chan = await getChannelForUser(payload.channelId, inf.userId);
+      send(ws,{type:'channel_left', payload:{channelId:payload.channelId}});
+      if (chan) bcastAll({type:'channel_updated', payload:{channel:chan}});
+
+    } else if (type === 'post_to_channel') {
+      if (!inf) return;
+      const mem = await dbGet(`SELECT role FROM channel_members WHERE channel_id=$1 AND user_id=$2`,
+        [payload.channelId, inf.userId]);
+      if (!mem || !['owner','admin'].includes(mem.role)) return;
+      const { channelId, text, media } = payload;
+      if (!text?.trim() && !media) return;
+      const pid = newId();
+      await dbRun(`INSERT INTO channel_posts(id,channel_id,text,media,ts) VALUES($1,$2,$3,$4,$5)`,
+        [pid, channelId, text?.trim()||'', media||'', Date.now()]);
+      const post = await getChanPostById(pid);
+      await bcastChannel(channelId, {type:'channel_post_new', payload:{post}});
+
+    } else if (type === 'load_channel_posts') {
+      if (!inf) return;
+      const mem2 = await dbGet(`SELECT 1 FROM channel_members WHERE channel_id=$1 AND user_id=$2`,
+        [payload.channelId, inf.userId]);
+      if (!mem2) return;
+      const posts = await getChannelPosts(payload.channelId, 60, payload.before||null);
+      send(ws,{type:'channel_posts', payload:{channelId:payload.channelId, posts, reset:!payload.before}});
+
+    } else if (type === 'react_channel_post') {
+      if (!inf) return;
+      const cpRow = await dbGet(`SELECT channel_id FROM channel_posts WHERE id=$1`, [payload.postId]);
+      if (!cpRow) return;
+      const mem3 = await dbGet(`SELECT 1 FROM channel_members WHERE channel_id=$1 AND user_id=$2`,
+        [cpRow.channel_id, inf.userId]);
+      if (!mem3) return;
+      const ex = await dbGet(`SELECT emoji FROM channel_post_reactions WHERE post_id=$1 AND user_id=$2`,
+        [payload.postId, inf.userId]);
+      if (ex && ex.emoji === payload.emoji) {
+        await dbRun(`DELETE FROM channel_post_reactions WHERE post_id=$1 AND user_id=$2`, [payload.postId, inf.userId]);
+      } else {
+        await dbRun(`INSERT INTO channel_post_reactions(post_id,user_id,emoji) VALUES($1,$2,$3) ON CONFLICT(post_id,user_id) DO UPDATE SET emoji=$3`,
+          [payload.postId, inf.userId, payload.emoji]);
+      }
+      const rm = await getChanPostReactionsMap([payload.postId]);
+      await bcastChannel(cpRow.channel_id, {type:'channel_post_reacted',
+        payload:{postId:payload.postId, channelId:cpRow.channel_id, reactions:rm[payload.postId]||{}}});
+
+    } else if (type === 'delete_channel_post') {
+      if (!inf) return;
+      const cpDel = await dbGet(`SELECT channel_id FROM channel_posts WHERE id=$1`, [payload.postId]);
+      if (!cpDel) return;
+      const memDel = await dbGet(`SELECT role FROM channel_members WHERE channel_id=$1 AND user_id=$2`,
+        [cpDel.channel_id, inf.userId]);
+      if (!memDel || !['owner','admin'].includes(memDel.role)) return;
+      await dbRun(`DELETE FROM channel_posts WHERE id=$1`, [payload.postId]);
+      await dbRun(`DELETE FROM channel_post_reactions WHERE post_id=$1`, [payload.postId]);
+      await bcastChannel(cpDel.channel_id, {type:'channel_post_deleted',
+        payload:{postId:payload.postId, channelId:cpDel.channel_id}});
     }
   });
 

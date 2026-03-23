@@ -66,6 +66,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_badges TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banner TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
 
@@ -149,7 +150,8 @@ function safe(u) {
     statusBadge: u.status_badge || '',
     ownedBadges: JSON.parse(u.owned_badges || '[]'),
     verified: !!u.verified,
-    isAdmin: !!u.is_admin
+    isAdmin: !!u.is_admin,
+    banner: u.banner || ''
   };
 }
 async function addCoins(userId, amount) {
@@ -590,6 +592,7 @@ wss.on('connection', ws => {
       if (payload.displayName) await dbRun(`UPDATE users SET display_name=$1 WHERE id=$2`,[payload.displayName,inf.userId]);
       if (payload.status!==undefined) await dbRun(`UPDATE users SET status=$1 WHERE id=$2`,[payload.status,inf.userId]);
       if (payload.avatarUrl!==undefined) await dbRun(`UPDATE users SET avatar_url=$1 WHERE id=$2`,[payload.avatarUrl,inf.userId]);
+      if (payload.banner!==undefined) await dbRun(`UPDATE users SET banner=$1 WHERE id=$2`,[payload.banner,inf.userId]);
       await dbRun(`UPDATE users SET last_seen=$1 WHERE id=$2`,[Date.now(),inf.userId]);
       const u = safe(await getUserById(inf.userId));
       send(ws,{type:'profile_updated',payload:{user:u}});

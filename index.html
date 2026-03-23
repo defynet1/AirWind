@@ -340,6 +340,14 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 #upc .md{padding:0;overflow:hidden;width:380px;border-radius:18px}
 .upc-banner{height:130px;position:relative;background:linear-gradient(135deg,var(--ac),var(--ac2));overflow:hidden}
 .upc-banner canvas{width:100%;height:100%;display:block}
+.upc-banner.drawing{cursor:crosshair}
+.upc-draw-tools{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:5px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border-radius:20px;padding:4px 8px;z-index:3;align-items:center}
+.upc-draw-tools.hidden{display:none}
+.upc-clr{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s;flex-shrink:0}
+.upc-clr.on{border-color:#fff;transform:scale(1.15)}
+.upc-size{width:50px;accent-color:var(--ac);height:14px}
+.upc-dtbtn{background:none;border:none;color:#fff;font-size:14px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:.15s}
+.upc-dtbtn:hover{background:rgba(255,255,255,.15)}
 .upc-avwrap{position:relative;display:flex;justify-content:center;margin-top:-46px;z-index:2}
 .upc-av{width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;background-size:cover;background-position:center;flex-shrink:0;position:relative;overflow:hidden}
 .upc-body{padding:0 24px 24px;text-align:center}
@@ -644,7 +652,23 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 <div class="mo" id="upc">
   <div class="md">
     <button class="mclose" onclick="CM('upc')" style="position:absolute;right:12px;top:12px;z-index:5;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.5)">✕</button>
-    <div class="upc-banner"><canvas id="upc-canvas"></canvas></div>
+    <div class="upc-banner" id="upc-banner">
+      <canvas id="upc-canvas"></canvas>
+      <button class="upc-dtbtn" id="upc-edit-banner" style="display:none;position:absolute;top:6px;right:6px;z-index:3;background:rgba(0,0,0,.45);border-radius:8px;padding:4px 10px;font-size:12px" onclick="startBannerDraw()">🎨 Рисовать</button>
+      <div class="upc-draw-tools hidden" id="upc-draw-tools">
+        <div class="upc-clr on" style="background:#fff" onclick="setBannerColor('#fff',this)"></div>
+        <div class="upc-clr" style="background:#ef4444" onclick="setBannerColor('#ef4444',this)"></div>
+        <div class="upc-clr" style="background:#fbbf24" onclick="setBannerColor('#fbbf24',this)"></div>
+        <div class="upc-clr" style="background:#22c55e" onclick="setBannerColor('#22c55e',this)"></div>
+        <div class="upc-clr" style="background:#3b82f6" onclick="setBannerColor('#3b82f6',this)"></div>
+        <div class="upc-clr" style="background:#a855f7" onclick="setBannerColor('#a855f7',this)"></div>
+        <div class="upc-clr" style="background:#000" onclick="setBannerColor('#000',this)"></div>
+        <input type="range" class="upc-size" min="1" max="20" value="3" id="upc-brush-size" title="Размер кисти">
+        <button class="upc-dtbtn" onclick="clearBannerDraw()">🗑️</button>
+        <button class="upc-dtbtn" onclick="saveBannerDraw()">💾</button>
+        <button class="upc-dtbtn" onclick="cancelBannerDraw()">✕</button>
+      </div>
+    </div>
     <div class="upc-avwrap"><div class="upc-av" id="upc-av"></div></div>
     <div class="upc-body">
       <div class="upc-name" id="upc-name"></div>
@@ -1340,12 +1364,98 @@ function drawBanner(canvas, seed){
     ctx.fill();
   }
 }
+let bannerDrawing=false, bannerCtx=null, bannerColor='#fff', bannerViewUserId=null;
+
+function loadBannerForUser(canvas, u){
+  if(u.banner){
+    const img=new Image();
+    img.onload=()=>{
+      canvas.width=canvas.offsetWidth*2||760;
+      canvas.height=canvas.offsetHeight*2||260;
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+    };
+    img.src=u.banner;
+  } else {
+    const seed=Array.from(u.id).reduce((a,c)=>a+c.charCodeAt(0),0);
+    drawBanner(canvas,seed);
+  }
+}
+
+function startBannerDraw(){
+  bannerDrawing=true;
+  const banner=document.getElementById('upc-banner');
+  const canvas=document.getElementById('upc-canvas');
+  banner.classList.add('drawing');
+  document.getElementById('upc-draw-tools').classList.remove('hidden');
+  document.getElementById('upc-edit-banner').style.display='none';
+  bannerCtx=canvas.getContext('2d');
+  let drawing=false, lastX=0, lastY=0;
+  const getPos=(e)=>{
+    const r=canvas.getBoundingClientRect();
+    const sx=canvas.width/r.width, sy=canvas.height/r.height;
+    const t=e.touches?e.touches[0]:e;
+    return [(t.clientX-r.left)*sx,(t.clientY-r.top)*sy];
+  };
+  const down=(e)=>{e.preventDefault();drawing=true;[lastX,lastY]=getPos(e);};
+  const move=(e)=>{
+    if(!drawing)return;e.preventDefault();
+    const [x,y]=getPos(e);
+    bannerCtx.beginPath();
+    bannerCtx.moveTo(lastX,lastY);bannerCtx.lineTo(x,y);
+    bannerCtx.strokeStyle=bannerColor;
+    bannerCtx.lineWidth=parseInt(document.getElementById('upc-brush-size').value)*2;
+    bannerCtx.lineCap='round';bannerCtx.lineJoin='round';
+    bannerCtx.stroke();
+    lastX=x;lastY=y;
+  };
+  const up=()=>{drawing=false;};
+  canvas._drawHandlers={down,move,up};
+  canvas.addEventListener('mousedown',down);canvas.addEventListener('mousemove',move);
+  canvas.addEventListener('mouseup',up);canvas.addEventListener('mouseleave',up);
+  canvas.addEventListener('touchstart',down,{passive:false});canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',up);
+}
+function setBannerColor(c,el){
+  bannerColor=c;
+  document.querySelectorAll('.upc-clr').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+}
+function clearBannerDraw(){
+  const canvas=document.getElementById('upc-canvas');
+  const u=S.users[bannerViewUserId];
+  if(u) loadBannerForUser(canvas,{...u,banner:''});
+}
+function saveBannerDraw(){
+  const canvas=document.getElementById('upc-canvas');
+  const dataUrl=canvas.toDataURL('image/jpeg',0.8);
+  emit('update_profile',{banner:dataUrl});
+  cancelBannerDraw();
+}
+function cancelBannerDraw(){
+  bannerDrawing=false;
+  const banner=document.getElementById('upc-banner');
+  const canvas=document.getElementById('upc-canvas');
+  banner.classList.remove('drawing');
+  document.getElementById('upc-draw-tools').classList.add('hidden');
+  if(bannerViewUserId===me?.id)document.getElementById('upc-edit-banner').style.display='';
+  if(canvas._drawHandlers){
+    const h=canvas._drawHandlers;
+    canvas.removeEventListener('mousedown',h.down);canvas.removeEventListener('mousemove',h.move);
+    canvas.removeEventListener('mouseup',h.up);canvas.removeEventListener('mouseleave',h.up);
+    canvas.removeEventListener('touchstart',h.down);canvas.removeEventListener('touchmove',h.move);
+    canvas.removeEventListener('touchend',h.up);
+    delete canvas._drawHandlers;
+  }
+}
+
 function viewUserProfile(userId){
+  bannerViewUserId=userId;
+  cancelBannerDraw();
   const u=S.users[userId];
   if(!u)return;
   const canvas=document.getElementById('upc-canvas');
-  const seed=Array.from(u.id).reduce((a,c)=>a+c.charCodeAt(0),0);
-  requestAnimationFrame(()=>drawBanner(canvas,seed));
+  requestAnimationFrame(()=>loadBannerForUser(canvas,u));
+  document.getElementById('upc-edit-banner').style.display=(userId===me?.id)?'':'none';
   const av=document.getElementById('upc-av');
   av.textContent=avInner(u.displayName,u.avatarUrl);
   av.style.cssText=`width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};background-size:cover;background-position:center`;

@@ -141,7 +141,7 @@ async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER B
 const FRAME_COSTS  = { gold:10, purple:20, blue:30, pulse:40, fire:50, neon:60, electro:70, rainbow:80, lava:90, cosmos:100 };
 const PROMO_CODES  = { '67': {coins:1000000,set:false}, '68': {coins:0,set:true} };
 const BADGE_COSTS  = { active:50, popular:200, legend:500, god:2000 };
-const GIFT_COSTS   = { darwin:25, heart:15, star:30, crown:60, diamond:100 };
+const GIFT_COSTS   = { darwin:25, heart:15, star:30, fuzzy:45, crown:60, diamond:100 };
 
 function safe(u) {
   if (!u) return null;

@@ -299,6 +299,8 @@ function connect(){
   ws.onopen=()=>{
     setConn('Сервер доступен','ok');
     document.querySelectorAll('.abtn').forEach(b=>b.disabled=false);
+    const saved=JSON.parse(localStorage.getItem('aw_creds')||'null');
+    if(saved&&!me) emit('login',saved);
   };
   ws.onclose=()=>{
     setConn('Нет соединения — переподключение...','err');
@@ -422,9 +424,9 @@ function switchTab(t){
 function setConn(msg,cls){const e=document.getElementById('cstat');e.textContent=msg;e.className='conn'+(cls?' '+cls:'');}
 function showErr(m){const e=document.getElementById('aerr');e.textContent=m;e.style.display='block';}
 function clearErr(){document.getElementById('aerr').style.display='none';}
-function doLogin(){clearErr();const u=v('lu').trim().toLowerCase(),p=v('lp');if(!u||!p)return showErr('Заполните все поля');emit('login',{username:u,password:p});}
-function doRegister(){clearErr();const n=v('rn').trim(),u=v('ru').trim().toLowerCase(),p=v('rp'),p2=v('rp2');if(!n||!u||!p||!p2)return showErr('Заполните все поля');if(p.length<6)return showErr('Пароль минимум 6 символов');if(p!==p2)return showErr('Пароли не совпадают');emit('register',{username:u,displayName:n,password:p});}
-function logout(){me=null;openChatId=null;Object.keys(S).forEach(k=>S[k]=k==='online'?new Set():{});document.getElementById('app').classList.remove('on');document.getElementById('auth').style.display='flex';CM('pm');}
+function doLogin(){clearErr();const u=v('lu').trim().toLowerCase(),p=v('lp');if(!u||!p)return showErr('Заполните все поля');localStorage.setItem('aw_creds',JSON.stringify({username:u,password:p}));emit('login',{username:u,password:p});}
+function doRegister(){clearErr();const n=v('rn').trim(),u=v('ru').trim().toLowerCase(),p=v('rp'),p2=v('rp2');if(!n||!u||!p||!p2)return showErr('Заполните все поля');if(p.length<6)return showErr('Пароль минимум 6 символов');if(p!==p2)return showErr('Пароли не совпадают');localStorage.setItem('aw_creds',JSON.stringify({username:u,password:p}));emit('register',{username:u,displayName:n,password:p});}
+function logout(){me=null;openChatId=null;localStorage.removeItem('aw_creds');Object.keys(S).forEach(k=>S[k]=k==='online'?new Set():{});document.getElementById('app').classList.remove('on');document.getElementById('auth').style.display='flex';CM('pm');}
 
 // ════════════════════════════════════
 //  CHAT LIST

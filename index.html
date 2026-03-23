@@ -585,6 +585,13 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     </div>
     <div class="psec"><label>Имя</label><input id="pni" type="text"></div>
     <div class="psec"><label>Статус</label><input id="psi" placeholder="Привет, я в AirWind!"></div>
+    <div class="psec">
+      <label>Промокод</label>
+      <div style="display:flex;gap:6px">
+        <input id="promo-inp" placeholder="Введите промокод" style="flex:1" onkeydown="if(event.key==='Enter')redeemPromo()">
+        <button class="mbtn p" style="padding:0 14px;flex-shrink:0" onclick="redeemPromo()">Применить</button>
+      </div>
+    </div>
     <div class="mact" style="flex-direction:column">
       <button class="mbtn p" onclick="saveProfile()">Сохранить</button>
       <button class="mbtn" style="background:rgba(250,204,21,.12);color:#fbbf24;border:1px solid rgba(250,204,21,.25)" onclick="CM('pm');openFrameShop()">🪙 Магазин рамок</button>
@@ -838,6 +845,10 @@ function handle({type,payload}){
       const rel=document.getElementById('cpr_'+payload.postId);
       if(rel) rel.innerHTML=reactionBadgesHtml(payload.reactions,'chanpost',payload.postId);
       break;}
+
+    case 'promo_ok':
+      alert(`🎉 Промокод активирован! +${payload.coins.toLocaleString()} монет`);
+      break;
   }
 }
 
@@ -1211,6 +1222,13 @@ function openFrameShop(){
 }
 function buyFrame(frameId){emit('buy_frame',{frameId});}
 function equipFrame(frameId){emit('equip_frame',{frameId});}
+function redeemPromo(){
+  const inp=document.getElementById('promo-inp');
+  const code=inp.value.trim();
+  if(!code)return;
+  emit('redeem_promo',{code});
+  inp.value='';
+}
 function updateCoins(n){
   const b=document.getElementById('coins-badge');
   const c=document.getElementById('coins-count');

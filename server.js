@@ -8,10 +8,19 @@ const crypto    = require('crypto');
 const WebSocket = require('ws');
 const { Pool }  = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://airwind:airwind@localhost:5432/airwind',
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
-});
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+    : {
+        host:     process.env.PGHOST     || 'localhost',
+        port:     process.env.PGPORT     || 5432,
+        user:     process.env.PGUSER     || 'airwind',
+        password: process.env.PGPASSWORD || 'airwind',
+        database: process.env.PGDATABASE || process.env.POSTGRES_DB || 'airwind',
+        ssl: process.env.PGHOST && process.env.PGHOST !== 'localhost'
+          ? { rejectUnauthorized: false } : false
+      }
+);
 
 // ─── pg helpers ───────────────────────────────────
 async function dbAll(sql, p = []) {

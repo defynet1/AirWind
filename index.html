@@ -336,6 +336,18 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .adm-btn.give:hover{background:rgba(52,211,153,.25)}
 .adm-btn.take{background:rgba(248,113,113,.12);color:var(--red)}
 .adm-btn.take:hover{background:rgba(248,113,113,.22)}
+/* Gifts */
+#gfm .md{max-width:400px}
+.gf-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.gf-item{background:var(--sf2);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:.15s}
+.gf-item:hover{background:var(--sf3);transform:translateY(-2px)}
+.gf-img{width:56px;height:56px;border-radius:12px;object-fit:contain}
+.gf-name{font-size:12px;font-weight:500;color:var(--tx)}
+.gf-cost{font-size:11px;color:var(--yellow)}
+.upc-gifts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)}
+.upc-gift{display:flex;align-items:center;gap:4px;background:var(--sf2);border-radius:20px;padding:4px 10px 4px 4px}
+.upc-gift img{width:28px;height:28px;object-fit:contain}
+.upc-gift-cnt{font-size:12px;font-weight:600;color:var(--tx2)}
 /* User Profile Card */
 #upc .md{padding:0;overflow:hidden;width:380px;border-radius:18px}
 .upc-banner{height:130px;position:relative;background:linear-gradient(135deg,var(--ac),var(--ac2));overflow:hidden}
@@ -648,6 +660,17 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Gift Shop Modal -->
+<div class="mo" id="gfm">
+  <div class="md">
+    <button class="mclose" onclick="CM('gfm')">✕</button>
+    <div class="mt">🎁 Отправить подарок</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:4px">Кому: <strong id="gf-to-name"></strong></div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">У вас: <span id="gf-coins">0</span> монет</div>
+    <div class="gf-list" id="gf-list"></div>
+  </div>
+</div>
+
 <!-- User Profile Card -->
 <div class="mo" id="upc">
   <div class="md">
@@ -680,6 +703,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
         <div class="upc-stat"><div class="upc-stat-val" id="upc-frame">—</div><div class="upc-stat-label">Рамка</div></div>
         <div class="upc-stat"><div class="upc-stat-val" id="upc-badge">—</div><div class="upc-stat-label">Статус</div></div>
       </div>
+      <div class="upc-gifts" id="upc-gifts" style="display:none"></div>
       <div class="upc-actions" id="upc-actions"></div>
     </div>
   </div>
@@ -1034,6 +1058,18 @@ function handle({type,payload}){
       alert(payload.msg);
       emit('admin_get_users',{});
       break;
+    case 'gift_sent':{
+      const gi=GIFTS.find(x=>x.id===payload.giftId);
+      alert(`🎁 Подарок «${gi?.name||payload.giftId}» отправлен ${payload.toName}!`);
+      if(bannerViewUserId)loadUserGifts(bannerViewUserId);
+      break;}
+    case 'gift_received':{
+      const gi=GIFTS.find(x=>x.id===payload.giftId);
+      alert(`🎁 ${payload.fromName} подарил(а) вам «${gi?.name||payload.giftId}»!`);
+      break;}
+    case 'user_gifts':
+      renderUserGifts(payload.userId,payload.gifts);
+      break;
   }
 }
 
@@ -1325,6 +1361,54 @@ function startChat(){
 }
 
 // ════════════════════════════════════
+//  GIFTS
+// ════════════════════════════════════
+const GIFTS=[
+  {id:'darwin', name:'Дарвин',   cost:25,  img:`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><ellipse cx="40" cy="32" rx="22" ry="20" fill="#f97316"/><ellipse cx="40" cy="32" rx="18" ry="16" fill="#fb923c"/><circle cx="33" cy="28" r="5" fill="#fff"/><circle cx="47" cy="28" r="5" fill="#fff"/><circle cx="34" cy="28" r="2.5" fill="#111"/><circle cx="48" cy="28" r="2.5" fill="#111"/><ellipse cx="40" cy="36" rx="4" ry="2" fill="#c2410c"/><rect x="36" y="50" width="3" height="16" rx="1.5" fill="#f97316"/><rect x="41" y="50" width="3" height="16" rx="1.5" fill="#f97316"/><ellipse cx="37.5" cy="67" rx="5" ry="3" fill="#22c55e"/><ellipse cx="42.5" cy="67" rx="5" ry="3" fill="#22c55e"/><ellipse cx="18" cy="36" rx="6" ry="4" fill="#f97316" transform="rotate(-15,18,36)"/><ellipse cx="62" cy="36" rx="6" ry="4" fill="#f97316" transform="rotate(15,62,36)"/></svg>')}`},
+  {id:'heart',  name:'Сердце',   cost:15,  img:`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><defs><linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f43f5e"/><stop offset="100%" stop-color="#e11d48"/></linearGradient></defs><path d="M40 68 C20 50 8 38 8 26 C8 16 16 8 26 8 C32 8 37 12 40 16 C43 12 48 8 54 8 C64 8 72 16 72 26 C72 38 60 50 40 68Z" fill="url(#hg)"/><ellipse cx="28" cy="24" rx="6" ry="4" fill="rgba(255,255,255,.3)" transform="rotate(-30,28,24)"/></svg>')}`},
+  {id:'star',   name:'Звезда',   cost:30,  img:`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fde68a"/><stop offset="100%" stop-color="#f59e0b"/></linearGradient></defs><polygon points="40,6 49,30 74,30 54,46 62,72 40,56 18,72 26,46 6,30 31,30" fill="url(#sg)"/><polygon points="40,6 49,30 74,30 54,46 62,72 40,56 18,72 26,46 6,30 31,30" fill="rgba(255,255,255,.15)"/></svg>')}`},
+  {id:'crown',  name:'Корона',   cost:60,  img:`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/></linearGradient></defs><path d="M10 55 L15 22 L28 38 L40 14 L52 38 L65 22 L70 55Z" fill="url(#cg)"/><rect x="10" y="55" width="60" height="12" rx="4" fill="url(#cg)"/><circle cx="22" cy="58" r="3" fill="#dc2626"/><circle cx="40" cy="58" r="3" fill="#2563eb"/><circle cx="58" cy="58" r="3" fill="#16a34a"/><circle cx="15" cy="22" r="4" fill="#fde68a"/><circle cx="40" cy="14" r="4" fill="#fde68a"/><circle cx="65" cy="22" r="4" fill="#fde68a"/></svg>')}`},
+  {id:'diamond',name:'Бриллиант',cost:100, img:`data:image/svg+xml;charset=utf-8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><defs><linearGradient id="dg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#93c5fd"/><stop offset="50%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs><polygon points="40,70 8,30 20,14 60,14 72,30" fill="url(#dg)"/><polygon points="20,14 28,30 40,14 52,30 60,14" fill="rgba(255,255,255,.25)"/><polygon points="8,30 28,30 40,70" fill="rgba(0,0,0,.08)"/><polygon points="28,30 52,30 40,70" fill="rgba(255,255,255,.12)"/><line x1="8" y1="30" x2="72" y2="30" stroke="rgba(255,255,255,.3)" stroke-width="1"/></svg>')}`},
+];
+let giftToUserId=null;
+
+function openGiftShop(userId,userName){
+  giftToUserId=userId;
+  document.getElementById('gf-to-name').textContent=userName;
+  document.getElementById('gf-coins').textContent=me?.coins||0;
+  const list=document.getElementById('gf-list');
+  list.innerHTML=GIFTS.map(g=>`<div class="gf-item" onclick="sendGift('${g.id}')">
+    <img class="gf-img" src="${g.img}">
+    <div class="gf-name">${g.name}</div>
+    <div class="gf-cost">${g.cost} 🪙</div>
+  </div>`).join('');
+  OM('gfm');
+}
+function sendGift(giftId){
+  if(!giftToUserId)return;
+  const g=GIFTS.find(x=>x.id===giftId);
+  if(!g)return;
+  if((me?.coins||0)<g.cost)return alert('Недостаточно монет!');
+  if(!confirm(`Отправить «${g.name}» за ${g.cost} монет?`))return;
+  emit('send_gift',{toUserId:giftToUserId,giftId});
+  CM('gfm');
+}
+function loadUserGifts(userId){
+  emit('get_gifts',{userId});
+}
+function renderUserGifts(userId,gifts){
+  const container=document.getElementById('upc-gifts');
+  if(!container)return;
+  if(!gifts||!gifts.length){container.style.display='none';return;}
+  container.style.display='flex';
+  container.innerHTML=gifts.map(g=>{
+    const gi=GIFTS.find(x=>x.id===g.gift_id);
+    if(!gi)return '';
+    return `<div class="upc-gift"><img src="${gi.img}"><span class="upc-gift-cnt">x${g.cnt}</span></div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════
 //  RULES CHAT
 // ════════════════════════════════════
 const RULES_TEXT=`📜 **Правила AirWind**
@@ -1555,8 +1639,11 @@ function viewUserProfile(userId){
     acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');openProfile()">Редактировать</button>`
       +(me.isAdmin?`<button class="mbtn" style="background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)" onclick="CM('upc');openAdminPanel()">🛡️ Админ-панель</button>`:'');
   } else {
-    acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');startChatWith('${u.id}')">Написать</button>`;
+    acts.innerHTML=`<button class="mbtn p" onclick="CM('upc');startChatWith('${u.id}')">Написать</button><button class="mbtn" style="background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25)" onclick="CM('upc');openGiftShop('${u.id}','${esc(u.displayName)}')">🎁 Подарить</button>`;
   }
+  document.getElementById('upc-gifts').style.display='none';
+  document.getElementById('upc-gifts').innerHTML='';
+  loadUserGifts(userId);
   OM('upc');
 }
 function startChatWith(uid){

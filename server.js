@@ -113,6 +113,11 @@ async function initDB() {
     PRIMARY KEY (post_id, user_id)
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS gifts (
+    id TEXT PRIMARY KEY, from_user_id TEXT NOT NULL, to_user_id TEXT NOT NULL,
+    gift_id TEXT NOT NULL, ts BIGINT NOT NULL
+  )`);
+
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
     await pool.query(`INSERT INTO chats(id,is_group,name,created_at) VALUES('__global__',1,'Общий чат',$1)`, [Date.now()]);
@@ -136,6 +141,7 @@ async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER B
 const FRAME_COSTS  = { gold:10, purple:20, blue:30, pulse:40, fire:50, neon:60, electro:70, rainbow:80, lava:90, cosmos:100 };
 const PROMO_CODES  = { '67': {coins:1000000,set:false}, '68': {coins:0,set:true} };
 const BADGE_COSTS  = { active:50, popular:200, legend:500, god:2000 };
+const GIFT_COSTS   = { darwin:25, heart:15, star:30, crown:60, diamond:100 };
 
 function safe(u) {
   if (!u) return null;
@@ -877,6 +883,31 @@ wss.on('connection', ws => {
       if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
       const all = await getAllUsers();
       send(ws,{type:'admin_users',payload:{users:all.map(safe)}});
+
+    } else if (type === 'send_gift') {
+      if (!inf) return;
+      const { toUserId, giftId } = payload;
+      const cost = GIFT_COSTS[giftId];
+      if (!cost) return send(ws,{type:'error',payload:{msg:'Неизвестный подарок'}});
+      if (toUserId === inf.userId) return send(ws,{type:'error',payload:{msg:'Нельзя дарить себе'}});
+      const sender = await getUserById(inf.userId);
+      if (!sender || Number(sender.coins||0) < cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
+      const target = await getUserById(toUserId);
+      if (!target) return send(ws,{type:'error',payload:{msg:'Пользователь не найден'}});
+      await dbRun(`UPDATE users SET coins=coins-$1 WHERE id=$2`, [cost, inf.userId]);
+      const id = newId();
+      await dbRun(`INSERT INTO gifts(id,from_user_id,to_user_id,gift_id,ts) VALUES($1,$2,$3,$4,$5)`, [id, inf.userId, toUserId, giftId, Date.now()]);
+      const updatedSender = await getUserById(inf.userId);
+      bcastAll({type:'user_updated', payload:{user:safe(updatedSender)}});
+      send(ws,{type:'gift_sent',payload:{giftId,toUserId,toName:target.display_name}});
+      // notify recipient
+      clients.forEach((ci,w)=>{if(ci.userId===toUserId)send(w,{type:'gift_received',payload:{giftId,fromName:sender.display_name,fromId:inf.userId}});});
+
+    } else if (type === 'get_gifts') {
+      if (!inf) return;
+      const userId = payload.userId || inf.userId;
+      const gifts = await dbAll(`SELECT gift_id, COUNT(*) as cnt FROM gifts WHERE to_user_id=$1 GROUP BY gift_id`, [userId]);
+      send(ws,{type:'user_gifts',payload:{userId, gifts}});
     }
     } catch(e) { console.error('ws msg error:', e); send(ws,{type:'error',payload:{msg:'Ошибка сервера: '+e.message}}); }
   });

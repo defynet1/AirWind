@@ -202,8 +202,8 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .padd-btn:hover{border-color:var(--ac);background:var(--sf3)}
 
 /* ── SIDEBAR TABS ── */
-.stabs{display:flex;gap:4px;padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.05)}
-.stab{flex:1;padding:7px 0;border:none;background:transparent;color:var(--tx3);font-family:var(--font);font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:.2s}
+.stabs{display:flex;gap:6px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.05);margin-top:auto;justify-content:center}
+.stab{flex:1;padding:12px 0;border:none;background:transparent;color:var(--tx3);font-family:var(--font);font-size:15px;font-weight:500;border-radius:12px;cursor:pointer;transition:.2s}
 .stab.on{background:rgba(99,102,241,.16);color:var(--ac)}
 
 /* ── FEED AREA ── */
@@ -409,11 +409,6 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="ibtn" title="Настройки" onclick="openSettings()">⚙️</button>
       <button class="ibtn" title="Профиль" onclick="if(me)viewUserProfile(me.id)">👤</button>
     </div>
-    <div class="stabs">
-      <button class="stab on" id="stab-chats" onclick="switchSideTab('chats')">💬 Чаты</button>
-      <button class="stab" id="stab-feed" onclick="switchSideTab('feed')">📸 Лента</button>
-      <button class="stab" id="stab-channels" onclick="switchSideTab('channels')">📢</button>
-    </div>
     <div id="chats-panel">
       <div class="swrap"><input class="sinput" placeholder="🔍  Поиск..." oninput="filterChats(this.value)" id="search-input"></div>
       <div id="clist"></div>
@@ -427,6 +422,11 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
         <button class="ibtn" title="Создать канал" onclick="openCreateChannel()">＋</button>
       </div>
       <div id="chlist" style="flex:1;overflow-y:auto"></div>
+    </div>
+    <div class="stabs">
+      <button class="stab on" id="stab-chats" onclick="switchSideTab('chats')">💬 Чаты</button>
+      <button class="stab" id="stab-feed" onclick="switchSideTab('feed')">📸 Лента</button>
+      <button class="stab" id="stab-channels" onclick="switchSideTab('channels')">📢</button>
     </div>
   </div>
 

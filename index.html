@@ -1069,6 +1069,14 @@ function renderList(filter=''){
   const showG=!f||'общий чат'.includes(f)||'airwind'.includes(f);
 
   let html='';
+  const showR=!f||'правила'.includes(f)||'rules'.includes(f);
+  if(showR)html+=`<div class="gci${openChatId==='__rules__'?' on':''}" onclick="openRulesChat()" style="order:-1">
+    <div class="gav" style="background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:13px">📜</div>
+    <div class="cmeta">
+      <div class="cnrow"><div class="cname">Правила <span class="gbadge" style="background:rgba(34,197,94,.15);color:#22c55e">INFO</span></div></div>
+      <div class="cprev"><span>Правила и политика</span></div>
+    </div></div>`;
+
   if(showG)html+=`<div class="gci${openChatId==='__global__'?' on':''}" onclick="openChat('__global__')">
     <div class="gav">🌐</div>
     <div class="cmeta">
@@ -1110,12 +1118,19 @@ function openChat(id){
   document.getElementById('noc').classList.add('hidden');
   const ac=document.getElementById('achat');
   ac.classList.remove('hidden');ac.style.display='flex';
+  document.querySelector('.ibar').style.display='';
   updateHeader(id);renderMsgs(id);renderList();
   document.getElementById('minput').focus();
 }
 function updateHeader(id){
   const av=document.getElementById('chav');
   av.onclick=null;
+  if(id==='__rules__'){
+    av.textContent='📜';av.style.background='linear-gradient(135deg,#22c55e,#16a34a)';av.style.borderRadius='13px';
+    document.getElementById('chname').textContent='Правила';
+    document.getElementById('chsub').textContent='Правила, политика и конфиденциальность';
+    return;
+  }
   if(id==='__global__'){
     av.textContent='🌐';av.style.background='linear-gradient(135deg,#5b8cff,#7c5cfc)';av.style.borderRadius='13px';
     document.getElementById('chname').textContent='Общий чат';
@@ -1307,6 +1322,68 @@ function startChat(){
     emit('create_group_chat',{name:v('gni').trim()||'Группа',memberIds:[me.id,...selUsers]});
   }
   CM('ncm');
+}
+
+// ════════════════════════════════════
+//  RULES CHAT
+// ════════════════════════════════════
+const RULES_TEXT=`📜 **Правила AirWind**
+
+1. Уважайте других пользователей. Оскорбления, травля и дискриминация запрещены.
+
+2. Запрещён спам, реклама и массовая рассылка сообщений.
+
+3. Не публикуйте контент 18+, насилие или шокирующие материалы.
+
+4. Не выдавайте себя за других людей или администрацию.
+
+5. Не используйте баги и уязвимости — сообщайте о них администрации.
+
+6. Запрещено распространение вредоносного ПО и фишинговых ссылок.
+
+7. Администрация оставляет за собой право заблокировать аккаунт за нарушение правил.
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+🔒 **Политика конфиденциальности**
+
+• Мы храним только данные, необходимые для работы мессенджера: логин, имя, аватар и сообщения.
+
+• Пароли хранятся в зашифрованном виде (SHA-256).
+
+• Мы не передаём ваши данные третьим лицам.
+
+• Вы можете удалить свои сообщения в любой момент.
+
+• Администрация имеет доступ к сообщениям для модерации.
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+Используя AirWind, вы соглашаетесь с данными правилами.
+Последнее обновление: март 2026`;
+
+function openRulesChat(){
+  openChatId='__rules__';
+  document.getElementById('noc').classList.add('hidden');
+  const ac=document.getElementById('achat');
+  ac.classList.remove('hidden');ac.style.display='flex';
+  updateHeader('__rules__');
+  renderList();
+  const area=document.getElementById('msgs');
+  const ibar=document.querySelector('.ibar');
+  ibar.style.display='none';
+  area.innerHTML=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px">
+    <div style="font-size:48px">📜</div>
+    <div style="font-size:16px;font-weight:600;color:var(--tx)">Правила AirWind</div>
+    <div style="font-size:13px;color:var(--tx3);text-align:center">Правила использования мессенджера,<br>политика и конфиденциальность</div>
+    <button class="mbtn p" style="padding:10px 28px;font-size:14px" onclick="showRulesText()">Показать правила</button>
+  </div>`;
+}
+function showRulesText(){
+  const area=document.getElementById('msgs');
+  const formatted=RULES_TEXT.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  area.innerHTML=`<div style="padding:20px;line-height:1.7;font-size:14px;color:var(--tx)">${formatted}</div>`;
+  area.scrollTop=0;
 }
 
 // ════════════════════════════════════

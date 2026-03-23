@@ -752,19 +752,21 @@ function handle({type,payload}){
       break;}
 
     case 'channels_list':
-      payload.channels.forEach(c=>S.channels[c.id]=c);
+      payload.channels.forEach(c=>{c.isOwner=!!(me&&c.ownerId===me.id);S.channels[c.id]=c;});
       renderChannelList(); break;
 
     case 'channel_created':
     case 'channel_updated':{
       const ch=payload.channel;
+      ch.isOwner=!!(me&&ch.ownerId===me.id);
       S.channels[ch.id]=ch;
       renderChannelList();
       if(openChannelId===ch.id) renderChannelHeader(ch);
       break;}
 
     case 'channel_joined':{
-      S.channels[payload.channel.id]=payload.channel;
+      const _cj=payload.channel; _cj.isOwner=!!(me&&_cj.ownerId===me.id);
+      S.channels[_cj.id]=_cj; payload.channel=_cj;
       renderChannelList();
       openChannel(payload.channel.id);
       break;}
@@ -1615,7 +1617,7 @@ function renderChanPosts(channelId,scrollDown=false){
   const el=document.getElementById('ch-posts'); if(!el) return;
   const posts=S.chanPosts[channelId]||[];
   if(!posts.length){
-    el.innerHTML=`<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:13px;padding:40px">Постов пока нет</div>`;
+    el.innerHTML=`<div class="ch-empty-msg" style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:13px;padding:40px">Постов пока нет</div>`;
     return;
   }
   let html='', lastD='';
@@ -1661,7 +1663,7 @@ function chanMediaHtml(media){
 
 function appendChanPost(p){
   const el=document.getElementById('ch-posts'); if(!el) return;
-  const empty=el.querySelector('[style*="Постов пока нет"]');
+  const empty=el.querySelector('.ch-empty-msg');
   if(empty) el.innerHTML='';
   const div=document.createElement('div');
   div.innerHTML=chanPostHtml(p);

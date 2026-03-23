@@ -365,6 +365,16 @@ async function bcastChannel(channelId, d) {
   const subSet = new Set(subs.map(s => s.user_id));
   clients.forEach((inf, w) => { if (subSet.has(inf.userId)) send(w, d); });
 }
+async function bcastChannelUpdate(channelId, excludeWs = null) {
+  const promises = [];
+  clients.forEach((inf, w) => {
+    if (w === excludeWs) return;
+    promises.push(getChannelForUser(channelId, inf.userId).then(chan => {
+      if (chan) send(w, {type:'channel_updated', payload:{channel:chan}});
+    }));
+  });
+  await Promise.all(promises);
+}
 
 // ─── Uploads ──────────────────────────────────────
 const UPLOADS_DIR = path.join(process.env.DATA_DIR || __dirname, 'uploads');
@@ -639,7 +649,8 @@ wss.on('connection', ws => {
       await dbRun(`INSERT INTO channel_members(channel_id,user_id,role,joined_at) VALUES($1,$2,'owner',$3)`,
         [cid, inf.userId, now]);
       const chan = await getChannelForUser(cid, inf.userId);
-      bcastAll({type:'channel_created', payload:{channel:chan}});
+      send(ws, {type:'channel_created', payload:{channel:chan}});
+      await bcastChannelUpdate(cid, ws);
 
     } else if (type === 'join_channel') {
       if (!inf) return;
@@ -648,16 +659,15 @@ wss.on('connection', ws => {
       const chan = await getChannelForUser(payload.channelId, inf.userId);
       if (!chan) return;
       send(ws,{type:'channel_joined', payload:{channel:chan}});
-      bcastAll({type:'channel_updated', payload:{channel:chan}});
+      await bcastChannelUpdate(payload.channelId, ws);
 
     } else if (type === 'leave_channel') {
       if (!inf) return;
       const own = await dbGet(`SELECT owner_id FROM channels WHERE id=$1`, [payload.channelId]);
       if (own?.owner_id === inf.userId) return;
       await dbRun(`DELETE FROM channel_members WHERE channel_id=$1 AND user_id=$2`, [payload.channelId, inf.userId]);
-      const chan = await getChannelForUser(payload.channelId, inf.userId);
       send(ws,{type:'channel_left', payload:{channelId:payload.channelId}});
-      if (chan) bcastAll({type:'channel_updated', payload:{channel:chan}});
+      await bcastChannelUpdate(payload.channelId, ws);
 
     } else if (type === 'post_to_channel') {
       if (!inf) return;
@@ -708,8 +718,7 @@ wss.on('connection', ws => {
       if (description !== undefined) await dbRun(`UPDATE channels SET description=$1 WHERE id=$2`, [description||'', channelId]);
       if (avatarColor) await dbRun(`UPDATE channels SET avatar_color=$1 WHERE id=$2`, [avatarColor, channelId]);
       if (avatarUrl !== undefined) await dbRun(`UPDATE channels SET avatar_url=$1 WHERE id=$2`, [avatarUrl||'', channelId]);
-      const updated = await getChannelForUser(channelId, inf.userId);
-      if (updated) bcastAll({ type: 'channel_updated', payload: { channel: updated } });
+      await bcastChannelUpdate(channelId);
 
     } else if (type === 'delete_channel_post') {
       if (!inf) return;

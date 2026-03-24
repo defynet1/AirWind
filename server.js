@@ -888,8 +888,8 @@ wss.on('connection', ws => {
       if (!inf) return;
       const { toUserId, giftId } = payload;
       const cost = GIFT_COSTS[giftId];
-      if (!cost) return send(ws,{type:'error',payload:{msg:'Неизвестный подарок'}});
-      if (toUserId === inf.userId) return send(ws,{type:'error',payload:{msg:'Нельзя дарить себе'}});
+      if (!cost) return send(ws,{type:'error',payload:{msg:'Неизвестная медаль'}});
+      if (toUserId === inf.userId) return send(ws,{type:'error',payload:{msg:'Нельзя наградить себя'}});
       const sender = await getUserById(inf.userId);
       if (!sender || Number(sender.coins||0) < cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
       const target = await getUserById(toUserId);

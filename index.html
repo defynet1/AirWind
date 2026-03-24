@@ -496,7 +496,10 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="ibtn" title="Профиль" onclick="if(me)viewUserProfile(me.id)">👤</button>
     </div>
     <div id="chats-panel">
-      <div class="swrap"><input class="sinput" placeholder="🔍  Поиск..." oninput="filterChats(this.value)" id="search-input"></div>
+      <div class="swrap" style="display:flex;align-items:center;gap:6px">
+        <input class="sinput" placeholder="🔍  Поиск..." oninput="filterChats(this.value)" id="search-input" style="flex:1">
+        <button class="ibtn" title="Создать группу" onclick="openCreateGroup()">＋</button>
+      </div>
       <div id="clist"></div>
     </div>
     <div id="feed-sidebar" class="hidden">
@@ -689,16 +692,17 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
-<!-- New Chat Modal -->
+<!-- Create Group Modal -->
 <div class="mo" id="ncm">
   <div class="md">
     <button class="mclose" onclick="CM('ncm')">✕</button>
-    <div class="mt">Новый чат</div>
+    <div class="mt">Создать группу</div>
+    <div class="gnf on"><label>Название группы</label><input id="gni" placeholder="Моя группа"></div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:8px">Выберите участников:</div>
     <div class="ulist" id="ulist"></div>
-    <div class="gnf" id="gnf"><label>Название группы</label><input id="gni" placeholder="Моя группа"></div>
     <div class="mact">
       <button class="mbtn g" onclick="CM('ncm')">Отмена</button>
-      <button class="mbtn p" id="scbtn" onclick="startChat()">Начать чат</button>
+      <button class="mbtn p" id="scbtn" onclick="createGroup()">Создать группу</button>
     </div>
   </div>
 </div>
@@ -1484,36 +1488,33 @@ function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrol
 // ════════════════════════════════════
 //  NEW CHAT
 // ════════════════════════════════════
-function openNewChat(){
+function openCreateGroup(){
   selUsers=[];
-  const others=Object.values(S.users).filter(u=>u.id!==me?.id);
+  // Показать только пользователей, с которыми есть приватный чат
+  const chatUserIds=Object.values(S.chats)
+    .filter(c=>!c.isGroup&&c.members?.includes(me?.id))
+    .map(c=>c.members.find(id=>id!==me?.id))
+    .filter(Boolean);
+  const others=chatUserIds.map(id=>S.users[id]).filter(Boolean);
   document.getElementById('ulist').innerHTML=others.length
     ?others.map(u=>`<div class="urow" id="ur_${u.id}" onclick="togU('${u.id}')">
-        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px;cursor:pointer" onclick="event.stopPropagation();viewUserProfile('${u.id}')">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
+        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
         <div class="uri"><div class="urn">${esc(u.displayName)}</div><div class="uruu">@${esc(u.username)}</div></div>
         <span class="chk">✓</span></div>`).join('')
-    :'<div style="padding:18px;text-align:center;color:var(--tx3);font-size:13px">Нет других пользователей</div>';
-  document.getElementById('gnf').classList.remove('on');
+    :'<div style="padding:18px;text-align:center;color:var(--tx3);font-size:13px">Нет контактов. Начните чат с кем-нибудь.</div>';
   document.getElementById('gni').value='';
+  document.getElementById('scbtn').textContent='Создать группу';
   OM('ncm');
 }
 function togU(uid){
   const i=selUsers.indexOf(uid);i>=0?selUsers.splice(i,1):selUsers.push(uid);
-  document.querySelectorAll('.urow').forEach(r=>r.classList.remove('sel'));
+  document.querySelectorAll('#ulist .urow').forEach(r=>r.classList.remove('sel'));
   selUsers.forEach(id=>{const r=document.getElementById('ur_'+id);if(r)r.classList.add('sel');});
-  document.getElementById('gnf').classList.toggle('on',selUsers.length>1);
-  document.getElementById('scbtn').textContent=selUsers.length>1?'Создать группу':'Начать чат';
+  document.getElementById('scbtn').textContent=selUsers.length?`Создать группу (${selUsers.length})`:'Создать группу';
 }
-function startChat(){
+function createGroup(){
   if(!selUsers.length)return;
-  if(selUsers.length===1){
-    const ex=Object.values(S.chats).find(c=>!c.isGroup&&c.members.includes(me.id)&&c.members.includes(selUsers[0]));
-    if(ex){CM('ncm');openChat(ex.id);return;}
-    pendingChat=null;
-    emit('create_private_chat',{targetUserId:selUsers[0]});
-  } else {
-    emit('create_group_chat',{name:v('gni').trim()||'Группа',memberIds:[me.id,...selUsers]});
-  }
+  emit('create_group_chat',{name:v('gni').trim()||'Группа',memberIds:[me.id,...selUsers]});
   CM('ncm');
 }
 

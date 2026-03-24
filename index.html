@@ -937,13 +937,13 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 </div>
 
 <!-- Create Sticker Pack Modal -->
-<div class="mo" id="cpm">
+<div class="mo" id="cspm">
   <div class="md" style="max-width:360px">
-    <button class="mclose" onclick="CM('cpm')">✕</button>
+    <button class="mclose" onclick="CM('cspm')">✕</button>
     <div class="mt">Создать набор стикеров</div>
     <div class="afield" style="margin-bottom:12px"><input id="cp-name" placeholder="Название набора"></div>
     <div class="mact">
-      <button class="mbtn g" onclick="CM('cpm')">Отмена</button>
+      <button class="mbtn g" onclick="CM('cspm')">Отмена</button>
       <button class="mbtn p" onclick="doCreatePack()">Создать</button>
     </div>
   </div>
@@ -965,7 +965,8 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div class="mt" id="mp-title">Набор</div>
     <div id="mp-stickers" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;max-height:240px;overflow-y:auto"></div>
     <div class="mact">
-      <button class="mbtn" style="background:rgba(99,102,241,.12);color:var(--ac);border:1px solid rgba(99,102,241,.25)" onclick="document.getElementById('stickerfile').click()">＋ Добавить стикер</button>
+      <input type="file" id="packfile" accept="image/*" style="display:none" onchange="addToPack(this)">
+      <button class="mbtn" style="background:rgba(99,102,241,.12);color:var(--ac);border:1px solid rgba(99,102,241,.25)" onclick="document.getElementById('packfile').click()">＋ Добавить стикер</button>
       <button class="mbtn" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)" id="mp-del-btn" onclick="doDeletePack()">Удалить набор</button>
     </div>
   </div>
@@ -2501,13 +2502,13 @@ function sendStickerData(data){
 
 function openCreatePack(){
   document.getElementById('cp-name').value='';
-  OM('cpm');
+  OM('cspm');
 }
 function doCreatePack(){
   const name=document.getElementById('cp-name').value.trim();
   if(!name)return alert('Введите название');
   emit('create_sticker_pack',{name});
-  CM('cpm');
+  CM('cspm');
 }
 
 function managePack(idx){
@@ -2535,14 +2536,7 @@ function doDeleteSticker(id){
 }
 
 function addStickerFile(inp){
-  const file=inp.files[0]; if(!file) return;
-  // Если панель управления открыта — добавляем в пак
-  if(managingPackId&&document.getElementById('mpm')?.classList.contains('on')){
-    processImageForPack(file,managingPackId);
-    inp.value='';return;
-  }
-  // Иначе — отправляем как стикер напрямую (старое поведение)
-  if(!openChatId){inp.value='';return;}
+  const file=inp.files[0]; if(!file||!openChatId) return;
   if(file.type==='image/gif'){
     if(file.size>5*1024*1024){alert('GIF слишком большой (макс. 5 МБ)');inp.value='';return;}
     const reader=new FileReader();
@@ -2550,6 +2544,11 @@ function addStickerFile(inp){
     reader.readAsDataURL(file);inp.value='';return;
   }
   processImageToSend(file);inp.value='';
+}
+function addToPack(inp){
+  const file=inp.files[0]; if(!file||!managingPackId) return;
+  processImageForPack(file,managingPackId);
+  inp.value='';
 }
 function processImageForPack(file,packId){
   const reader=new FileReader();

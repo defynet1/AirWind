@@ -118,6 +118,17 @@ async function initDB() {
     gift_id TEXT NOT NULL, ts BIGINT NOT NULL
   )`);
 
+  // Indexes for performance
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, ts DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_members_channel ON channel_members(channel_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_members_user ON channel_members(user_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_channel_ts ON channel_posts(channel_id, ts DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_post_reactions_post ON channel_post_reactions(post_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_read_receipts_msg ON read_receipts(msg_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_user_id)`);
+
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
     await pool.query(`INSERT INTO chats(id,is_group,name,created_at) VALUES('__global__',1,'Общий чат',$1)`, [Date.now()]);
@@ -376,11 +387,13 @@ function toChan(c) {
 }
 async function getAllChannelsForUser(userId) {
   const rows = await dbAll(`
-    SELECT c.*,
-      (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id)::int as member_count,
-      (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id AND user_id=$1)::int as is_member,
-      (SELECT role FROM channel_members WHERE channel_id=c.id AND user_id=$1) as my_role
-    FROM channels c ORDER BY c.created_at DESC`, [userId]);
+    SELECT c.*, mc.cnt::int as member_count,
+      CASE WHEN um.user_id IS NOT NULL THEN 1 ELSE 0 END as is_member,
+      um.role as my_role
+    FROM channels c
+    LEFT JOIN (SELECT channel_id, COUNT(*) as cnt FROM channel_members GROUP BY channel_id) mc ON mc.channel_id=c.id
+    LEFT JOIN channel_members um ON um.channel_id=c.id AND um.user_id=$1
+    ORDER BY c.created_at DESC`, [userId]);
   return rows.map(toChan);
 }
 async function getChannelForUser(channelId, userId) {
@@ -511,15 +524,18 @@ wss.on('connection', ws => {
       if (await getUserByUsername(username)) return send(ws,{type:'error',payload:{msg:'Имя пользователя занято'}});
       const user = await createUser(username, displayName, password);
       clients.set(ws, { userId: user.id, username });
+      const [globalMsgs, allUsers, feedPosts, channels] = await Promise.all([
+        getMessages('__global__'), getAllUsers(), getFeed(20), getAllChannelsForUser(user.id)
+      ]);
       send(ws,{type:'auth_ok',payload:{user:safe(user)}});
       send(ws,{type:'chats',payload:{chats:[]}});
-      send(ws,{type:'chat_history',payload:{chatId:'__global__',messages:await getMessages('__global__')}});
-      send(ws,{type:'users',payload:{users:(await getAllUsers()).map(safe)}});
+      send(ws,{type:'chat_history',payload:{chatId:'__global__',messages:globalMsgs}});
+      send(ws,{type:'users',payload:{users:allUsers.map(safe)}});
       send(ws,{type:'online',payload:{userIds:onlineIds()}});
       bcastAll({type:'user_joined',payload:{user:safe(user)}},ws);
       bcastAll({type:'online',payload:{userIds:onlineIds()}});
-      send(ws,{type:'feed',payload:{posts:await getFeed(20),reset:true}});
-      send(ws,{type:'channels_list',payload:{channels:await getAllChannelsForUser(user.id)}});
+      send(ws,{type:'feed',payload:{posts:feedPosts,reset:true}});
+      send(ws,{type:'channels_list',payload:{channels}});
       console.log('register:', username);
 
     } else if (type === 'login') {
@@ -528,18 +544,26 @@ wss.on('connection', ws => {
       if (!user||user.password!==hashPw(password)) return send(ws,{type:'error',payload:{msg:'Неверное имя пользователя или пароль'}});
       await dbRun(`UPDATE users SET last_seen=$1 WHERE id=$2`,[Date.now(),user.id]);
       clients.set(ws, { userId: user.id, username });
-      const myChats = await getUserChats(user.id);
-      send(ws,{type:'auth_ok',payload:{user:safe(await getUserById(user.id))}});
+      const [freshUser, myChats, allUsers, globalMsgs, feedPosts, channels] = await Promise.all([
+        getUserById(user.id),
+        getUserChats(user.id),
+        getAllUsers(),
+        getMessages('__global__'),
+        getFeed(20),
+        getAllChannelsForUser(user.id)
+      ]);
+      send(ws,{type:'auth_ok',payload:{user:safe(freshUser)}});
       send(ws,{type:'chats',payload:{chats:myChats}});
-      send(ws,{type:'chat_history',payload:{chatId:'__global__',messages:await getMessages('__global__')}});
+      send(ws,{type:'chat_history',payload:{chatId:'__global__',messages:globalMsgs}});
+      send(ws,{type:'users',payload:{users:allUsers.map(safe)}});
+      send(ws,{type:'online',payload:{userIds:onlineIds()}});
+      bcastAll({type:'online',payload:{userIds:onlineIds()}},ws);
+      send(ws,{type:'feed',payload:{posts:feedPosts,reset:true}});
+      send(ws,{type:'channels_list',payload:{channels}});
+      // Load chat histories in parallel
       await Promise.all(myChats.map(async c =>
         send(ws,{type:'chat_history',payload:{chatId:c.id,messages:await getMessages(c.id)}})
       ));
-      send(ws,{type:'users',payload:{users:(await getAllUsers()).map(safe)}});
-      send(ws,{type:'online',payload:{userIds:onlineIds()}});
-      bcastAll({type:'online',payload:{userIds:onlineIds()}},ws);
-      send(ws,{type:'feed',payload:{posts:await getFeed(20),reset:true}});
-      send(ws,{type:'channels_list',payload:{channels:await getAllChannelsForUser(user.id)}});
       console.log('login:', username);
 
     } else if (type === 'send_message') {

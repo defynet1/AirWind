@@ -1197,7 +1197,9 @@ function mobShowView(view){
   // view: 'sidebar','chat','feed','channels'
   if(!isMobile())return;
   document.getElementById('sidebar').classList.toggle('mob-hidden',view!=='sidebar');
-  document.getElementById('carea').classList.toggle('mob-open',view==='chat');
+  const carea=document.getElementById('carea');
+  carea.style.display='';
+  carea.classList.toggle('mob-open',view==='chat');
 }
 function openChat(id){
   openChatId=id;
@@ -1224,7 +1226,10 @@ function mobileBackChannels(){
   if(isMobile()){
     document.getElementById('achannel').classList.add('hidden');
     document.getElementById('noc-ch').classList.remove('hidden');
+    document.getElementById('charea').classList.remove('on');
+    document.getElementById('sidebar').classList.remove('mob-hidden');
     openChannelId=null;
+    renderChannelList();
   }
 }
 function updateHeader(id){
@@ -2107,7 +2112,7 @@ function switchSideTab(tab){
   if(isMobile()){
     // Мобильный: каждая вкладка — отдельный полноэкранный вид
     document.getElementById('carea').classList.remove('mob-open');
-    document.getElementById('carea').style.display='none';
+    document.getElementById('carea').style.display='';
     document.getElementById('farea').classList.remove('on');
     document.getElementById('charea').classList.remove('on');
     if(tab==='chats'){

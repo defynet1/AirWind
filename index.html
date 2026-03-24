@@ -180,6 +180,15 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .stbtn{width:36px;height:36px;border-radius:10px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
 .stbtn:hover{background:var(--sf2);color:var(--tx)}
 
+/* ── EMOJI PANEL ── */
+.emoji-panel{background:rgba(15,17,22,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px;margin-bottom:6px;max-height:200px;overflow-y:auto;display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.emoji-panel.hidden{display:none}
+.emoji-panel .etab{display:flex;gap:4px;padding:4px 0 6px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:4px;grid-column:1/-1}
+.emoji-panel .etab button{background:none;border:none;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:6px;opacity:.5}
+.emoji-panel .etab button.on{opacity:1;background:rgba(99,102,241,.15)}
+.emoji-panel .ebtn{background:none;border:none;font-size:22px;cursor:pointer;padding:4px;border-radius:8px;line-height:1;transition:transform .1s}
+.emoji-panel .ebtn:hover{transform:scale(1.25);background:rgba(255,255,255,.06)}
+
 /* ── MEDIA (AUDIO / VIDEO) ── */
 .media-wrap{display:flex;flex-direction:column;gap:6px;min-width:240px;max-width:320px}
 .media-name{font-size:11px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
@@ -546,7 +555,9 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
           </div>
           <button class="edit-strip-close" onclick="clearEdit()">✕</button>
         </div>
+        <div class="emoji-panel hidden" id="emoji-panel"></div>
         <div class="irow">
+          <button class="stbtn" title="Эмодзи" onclick="toggleEmojiPanel()">😊</button>
           <button class="stbtn" title="Стикер / GIF" onclick="document.getElementById('stickerfile').click()">🎭</button>
           <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="sendSticker(this)">
           <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>
@@ -1436,6 +1447,7 @@ function sendMsg(){
   const inp=document.getElementById('minput');
   const text=inp.value.trim();if(!text)return;
   inp.value='';inp.style.height='';
+  document.getElementById('emoji-panel').classList.add('hidden');
   emit('typing_stop',{chatId:openChatId});
 
   if(editMsgId){
@@ -1484,6 +1496,49 @@ function onInput(el){
   typingTimer=setTimeout(()=>emit('typing_stop',{chatId:openChatId}),3000);
 }
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+
+// ════════════════════════════════════
+//  EMOJI PICKER
+// ════════════════════════════════════
+const EMOJI_CATS={
+  '😊':{name:'Смайлы',emoji:'😀😃😄😁😆😅🤣😂🙂😉😊😇🥰😍🤩😘😗😚😋😛😜🤪😝🤑🤗🤭🤫🤔🤐😐😑😶😏😒🙄😬😮‍💨🤥😌😴🤤😷🤒🤕🥴😵🤯🥳🤠🥸😎🤓🧐😕😟🙁☹️😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬'},
+  '👋':{name:'Жесты',emoji:'👋🤚🖐✋🖖👌🤌🤏✌️🤞🤟🤘🤙👈👉👆🖕👇☝️👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏💪🦾🖕✍️'},
+  '❤️':{name:'Символы',emoji:'❤️🧡💛💚💙💜🖤🤍🤎💔❤️‍🔥💕💞💓💗💖💘💝💟☮️✝️☪️🕉☸️✡️🔯🕎☯️☦️🛐⛎♈♉♊♋♌♍♎♏♐♑♒♓🆔⚛️🔥💫⭐🌟✨⚡💥💢💦💨'},
+  '🐶':{name:'Животные',emoji:'🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🙈🙉🙊🐒🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦟🦗🕷🦂🐢🐍🦎🦖🦕🐙🦑🦐🦞🦀🐡🐠🐟🐬🐳🐋🦈🐊🐅🐆🦓🦍🦧🐘🦛🦏🐪🐫🦒🦘🐃🐂🐄🐎🐖🐏🐑🦙🐐🦌🐕🐩🦮🐈🐓🦃🦚🦜🦢🦩🐇🦝🦨🦡🦦🦥🐁🐀🐿🦔'},
+  '🍎':{name:'Еда',emoji:'🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍈🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶🫑🌽🥕🧄🧅🥔🍠🥐🥖🍞🥨🧀🥚🍳🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🫓🥪🌮🌯🫔🥙🧆🥘🍝🥫🥣🥗🍿🧈🍚🍛🍜🫕🍲🍥🥮🍢🍡🍧🍨🍦🥧🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪🌰☕🍵🫖🥤🧋🍺🍻🍷🍸🍹🍾🧉'},
+  '⚽':{name:'Спорт',emoji:'⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🪀🏓🏸🏒🥅⛳🪁🏹🎣🤿🥊🥋🎽🛹🛼🛷⛸🥌🎿⛷🏂🪂🏋️🤸🤺⛹️🤾🏌️🏇🧘🏄🏊🤽🚣🧗🚵🚴🏆🥇🥈🥉🏅🎖🏵🎗🎪🎭🩰🎨🎬🎤🎧🎼🎹🥁🪘🎷🎺🎸🪕🎻🎲♟🎯🎳🎮🎰🧩'},
+  '🚗':{name:'Транспорт',emoji:'🚗🚕🚙🚌🚎🏎🚓🚑🚒🚐🛻🚚🚛🚜🏍🛵🚲🛴🛹🦽🦼🚏🛣🛤🚨🚥🚦🛑🚧⚓⛵🛶🚤🛳⛴🛥🚢✈️🛩🛫🛬🪂💺🚁🚟🚠🚡🛰🚀🛸🌍🌎🌏🗺🧭🗻🏕🏖🏜🏝🏞🏟🏛🏗🧱🪨🪵🛖🏠🏡🏢🏣🏤🏥🏦'},
+};
+let emojiCat=Object.keys(EMOJI_CATS)[0];
+
+function toggleEmojiPanel(){
+  const p=document.getElementById('emoji-panel');
+  if(!p.classList.contains('hidden')){p.classList.add('hidden');return;}
+  renderEmojiPanel();
+  p.classList.remove('hidden');
+}
+function renderEmojiPanel(){
+  const p=document.getElementById('emoji-panel');
+  const tabs=Object.entries(EMOJI_CATS).map(([k,v])=>
+    `<button class="${k===emojiCat?'on':''}" onclick="emojiCat='${k}';renderEmojiPanel()" title="${v.name}">${k}</button>`
+  ).join('');
+  const emojis=[...EMOJI_CATS[emojiCat].emoji].filter(c=>c.trim()).reduce((acc,ch)=>{
+    if(acc.length&&acc[acc.length-1].length===1&&/[\uD800-\uDBFF]/.test(acc[acc.length-1]))acc[acc.length-1]+=ch;
+    else if(acc.length&&/[\u200D\uFE0F]/.test(ch))acc[acc.length-1]+=ch;
+    else if(acc.length&&/[\uDC00-\uDFFF]/.test(ch))acc[acc.length-1]+=ch;
+    else acc.push(ch);
+    return acc;
+  },[]);
+  const btns=emojis.map(e=>`<button class="ebtn" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+  p.innerHTML=`<div class="etab">${tabs}</div>${btns}`;
+}
+function insertEmoji(e){
+  const inp=document.getElementById('minput');
+  const start=inp.selectionStart,end=inp.selectionEnd;
+  inp.value=inp.value.slice(0,start)+e+inp.value.slice(end);
+  inp.selectionStart=inp.selectionEnd=start+e.length;
+  inp.focus();
+}
 
 // ════════════════════════════════════
 //  NEW CHAT

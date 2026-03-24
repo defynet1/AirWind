@@ -67,6 +67,8 @@ async function initDB() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banner TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_bg TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_bgs TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
 
@@ -152,6 +154,7 @@ async function getAllUsers()         { return dbAll(`SELECT * FROM users ORDER B
 const FRAME_COSTS  = { gold:10, purple:20, blue:30, pulse:40, fire:50, neon:60, electro:70, rainbow:80, lava:90, cosmos:100 };
 const PROMO_CODES  = { '67': {coins:1000000,set:false}, '68': {coins:0,set:true} };
 const BADGE_COSTS  = { active:50, popular:200, legend:500, god:2000 };
+const BG_COSTS     = { aurora:30, particles:50, waves:40, matrix:60, starfield:70, gradient:20, fireflies:45, rain:35, nebula:80, plasma:100 };
 const GIFT_COSTS   = { darwin:25, heart:15, star:30, fuzzy:45, crown:60, diamond:100 };
 
 function safe(u) {
@@ -168,7 +171,9 @@ function safe(u) {
     ownedBadges: JSON.parse(u.owned_badges || '[]'),
     verified: !!u.verified,
     isAdmin: !!u.is_admin,
-    banner: u.banner || ''
+    banner: u.banner || '',
+    chatBg: u.chat_bg || '',
+    ownedBgs: JSON.parse(u.owned_bgs || '[]')
   };
 }
 async function addCoins(userId, amount) {
@@ -940,6 +945,38 @@ wss.on('connection', ws => {
       await dbRun(`UPDATE users SET status_badge=$1 WHERE id=$2`, [badgeId||'', inf.userId]);
       const updatedB = await getUserById(inf.userId);
       bcastAll({type:'user_updated', payload:{user:safe(updatedB)}});
+
+    } else if (type === 'buy_bg') {
+      if (!inf) return;
+      const { bgId } = payload;
+      const cost = BG_COSTS[bgId];
+      if (!cost) return;
+      const u = await getUserById(inf.userId);
+      if (!u) return;
+      const owned = JSON.parse(u.owned_bgs || '[]');
+      if (owned.includes(bgId)) {
+        await dbRun(`UPDATE users SET chat_bg=$1 WHERE id=$2`, [bgId, inf.userId]);
+      } else {
+        if (Number(u.coins || 0) < cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
+        owned.push(bgId);
+        await dbRun(`UPDATE users SET coins=coins-$1, owned_bgs=$2, chat_bg=$3 WHERE id=$4`,
+          [cost, JSON.stringify(owned), bgId, inf.userId]);
+      }
+      const updBg = await getUserById(inf.userId);
+      send(ws, {type:'bg_ok', payload:{bgId}});
+      send(ws, {type:'profile_updated', payload:{user:safe(updBg)}});
+
+    } else if (type === 'equip_bg') {
+      if (!inf) return;
+      const { bgId } = payload;
+      if (bgId) {
+        const u = await getUserById(inf.userId);
+        const owned = JSON.parse(u?.owned_bgs || '[]');
+        if (!owned.includes(bgId)) return;
+      }
+      await dbRun(`UPDATE users SET chat_bg=$1 WHERE id=$2`, [bgId||'', inf.userId]);
+      const updBg = await getUserById(inf.userId);
+      send(ws, {type:'profile_updated', payload:{user:safe(updBg)}});
 
     } else if (type === 'admin_verify') {
       if (!inf) return;

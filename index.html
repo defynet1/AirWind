@@ -391,6 +391,14 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .set-switch .slider:before{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;left:3px;top:3px;transition:.2s}
 .set-switch input:checked+.slider{background:var(--ac)}
 .set-switch input:checked+.slider:before{transform:translateX(18px)}
+/* Chat backgrounds */
+.chat-bg{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.chat-bg canvas{width:100%;height:100%}
+#carea{position:relative}
+#achat{position:relative;z-index:1}
+/* BG Shop */
+.bg-prev{width:100%;height:60px;border-radius:10px;overflow:hidden;position:relative;background:#0f1116}
+.bg-prev canvas{width:100%;height:100%}
 /* Frame shop */
 #fsm .md{max-width:380px}
 #bsm .md{max-width:380px}
@@ -847,6 +855,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="mbtn p" onclick="saveProfile()">Сохранить</button>
       <button class="mbtn" style="background:rgba(250,204,21,.12);color:#fbbf24;border:1px solid rgba(250,204,21,.25)" onclick="CM('pm');openFrameShop()">🪙 Магазин рамок</button>
       <button class="mbtn" style="background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.25)" onclick="CM('pm');openBadgeShop()">🎖️ Магазин статусов</button>
+      <button class="mbtn" style="background:rgba(52,211,153,.12);color:#34d399;border:1px solid rgba(52,211,153,.25)" onclick="CM('pm');openBgShop()">🎨 Анимированные фоны</button>
       <button class="mbtn" id="admin-btn" style="display:none;background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)" onclick="CM('pm');openAdminPanel()">🛡️ Админ-панель</button>
       <button class="dbtn" onclick="logout()">Выйти</button>
     </div>
@@ -870,6 +879,16 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div class="mt">🎖️ Магазин статусов</div>
     <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">У вас: <span id="bs-coins">0</span> монет</div>
     <div class="fs-list" id="bs-list"></div>
+  </div>
+</div>
+
+<!-- BG Shop Modal -->
+<div class="mo" id="bgm">
+  <div class="md" style="max-width:500px">
+    <button class="mclose" onclick="CM('bgm')">✕</button>
+    <div class="mt">🎨 Анимированные фоны</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">У вас: <span id="bg-coins">0</span> монет</div>
+    <div class="fs-list" id="bg-list" style="grid-template-columns:1fr 1fr"></div>
   </div>
 </div>
 
@@ -911,6 +930,7 @@ function handle({type,payload}){
       document.getElementById('auth').style.display='none';
       document.getElementById('app').classList.add('on');
       updateCoins(me.coins||0);
+      applyBg(me.chatBg||'');
       renderList(); openChat('__global__'); break;
 
     case 'error': showErr(payload.msg); break;
@@ -920,6 +940,12 @@ function handle({type,payload}){
       renderList(); break;
 
     case 'user_joined':
+    case 'profile_updated':
+      me=payload.user;S.users[me.id]=me;updateCoins(me.coins||0);
+      applyBg(me.chatBg||'');
+      if(document.getElementById('bgm')?.classList.contains('on'))openBgShop();
+      break;
+
     case 'user_updated':
       S.users[payload.user.id]=payload.user;
       if(me&&payload.user.id===me.id){me=payload.user;updateCoins(me.coins||0);if(document.getElementById('fsm')?.classList.contains('on'))openFrameShop();if(document.getElementById('bsm')?.classList.contains('on'))openBadgeShop();}
@@ -1130,6 +1156,11 @@ function handle({type,payload}){
     case 'badge_ok':{
       const b=BADGES.find(x=>x.id===payload.badgeId);
       if(b) alert(`✅ Статус «${b.name}» куплен и активирован!`);
+      break;}
+
+    case 'bg_ok':{
+      const bg=CHAT_BGS.find(x=>x.id===payload.bgId);
+      if(bg) alert(`✅ Фон «${bg.name}» куплен и применён!`);
       break;}
 
     case 'promo_ok':
@@ -2001,6 +2032,186 @@ function badgeHtml(badgeId){
   const b=BADGES.find(x=>x.id===badgeId);
   if(!b) return '';
   return `<img src="${svgUrl(b.svg)}" title="${b.name}" style="width:16px;height:16px;vertical-align:middle;margin-left:3px;flex-shrink:0">`;
+}
+
+// ════════════════════════════════════
+//  ANIMATED BACKGROUNDS
+// ════════════════════════════════════
+const CHAT_BGS=[
+  {id:'gradient',  name:'Градиент',   cost:20,  color1:'#1a1a2e',color2:'#16213e',color3:'#0f3460'},
+  {id:'aurora',    name:'Северное сияние', cost:30, color1:'#0f3460',color2:'#533483',color3:'#0e6655'},
+  {id:'rain',      name:'Дождь',      cost:35,  color1:'#1a1a2e'},
+  {id:'waves',     name:'Волны',      cost:40,  color1:'#0a192f',color2:'#172a45'},
+  {id:'fireflies', name:'Светлячки',  cost:45,  color1:'#0d1117'},
+  {id:'particles', name:'Частицы',    cost:50,  color1:'#0f1116',color2:'#6366f1'},
+  {id:'matrix',    name:'Матрица',    cost:60,  color1:'#0a0a0a'},
+  {id:'starfield', name:'Звёзды',     cost:70,  color1:'#000010'},
+  {id:'nebula',    name:'Туманность', cost:80,  color1:'#0d0221',color2:'#261447',color3:'#6b1839'},
+  {id:'plasma',    name:'Плазма',     cost:100, color1:'#0f0c29',color2:'#302b63',color3:'#24243e'},
+];
+let bgAnimId=null;
+
+function drawBg(canvas,bgId,t){
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height;
+  const bg=CHAT_BGS.find(b=>b.id===bgId);
+  if(!bg){ctx.clearRect(0,0,w,h);return;}
+  ctx.clearRect(0,0,w,h);
+
+  if(bgId==='gradient'){
+    const g=ctx.createLinearGradient(0,0,w*Math.sin(t*.0003),h);
+    g.addColorStop(0,bg.color1);g.addColorStop(.5,bg.color2);g.addColorStop(1,bg.color3);
+    ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  } else if(bgId==='aurora'){
+    ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
+    for(let i=0;i<3;i++){
+      const colors=[bg.color1,bg.color2,bg.color3];
+      ctx.beginPath();
+      ctx.globalAlpha=.25;
+      for(let x=0;x<=w;x+=4){
+        const y=h*.3+Math.sin(x*.005+t*.001+i*2)*h*.15+Math.sin(x*.01+t*.0015)*h*.08;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
+      ctx.fillStyle=colors[i];ctx.fill();ctx.globalAlpha=1;
+    }
+  } else if(bgId==='rain'){
+    ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(100,140,200,.15)';ctx.lineWidth=1;
+    if(!canvas._rain)canvas._rain=Array.from({length:80},()=>({x:Math.random()*w,y:Math.random()*h,s:2+Math.random()*4,l:8+Math.random()*15}));
+    canvas._rain.forEach(d=>{
+      ctx.beginPath();ctx.moveTo(d.x,d.y);ctx.lineTo(d.x-.5,d.y+d.l);ctx.stroke();
+      d.y+=d.s;if(d.y>h){d.y=-d.l;d.x=Math.random()*w;}
+    });
+  } else if(bgId==='waves'){
+    ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
+    for(let i=0;i<4;i++){
+      ctx.beginPath();ctx.globalAlpha=.08+i*.02;
+      for(let x=0;x<=w;x+=3){
+        const y=h*.5+Math.sin(x*.008+t*.001+i*1.5)*h*.12+Math.cos(x*.005+t*.0008+i)*h*.08;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
+      ctx.fillStyle=i%2?'#6366f1':'#38bdf8';ctx.fill();ctx.globalAlpha=1;
+    }
+  } else if(bgId==='fireflies'){
+    ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
+    if(!canvas._flies)canvas._flies=Array.from({length:30},()=>({x:Math.random()*w,y:Math.random()*h,r:1+Math.random()*2,p:Math.random()*Math.PI*2}));
+    canvas._flies.forEach(f=>{
+      f.p+=.015;f.x+=Math.sin(f.p)*.3;f.y+=Math.cos(f.p*.7)*.3;
+      if(f.x<0)f.x=w;if(f.x>w)f.x=0;if(f.y<0)f.y=h;if(f.y>h)f.y=0;
+      const a=.3+.4*Math.sin(t*.003+f.p);
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(251,191,36,${a})`;ctx.fill();
+      ctx.beginPath();ctx.arc(f.x,f.y,f.r*3,0,Math.PI*2);
+      ctx.fillStyle=`rgba(251,191,36,${a*.15})`;ctx.fill();
+    });
+  } else if(bgId==='particles'){
+    ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
+    if(!canvas._pts)canvas._pts=Array.from({length:40},()=>({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:1+Math.random()*1.5}));
+    canvas._pts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(99,102,241,.5)';ctx.fill();
+    });
+    ctx.strokeStyle='rgba(99,102,241,.08)';ctx.lineWidth=.5;
+    for(let i=0;i<canvas._pts.length;i++)for(let j=i+1;j<canvas._pts.length;j++){
+      const dx=canvas._pts[i].x-canvas._pts[j].x,dy=canvas._pts[i].y-canvas._pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<100){ctx.beginPath();ctx.moveTo(canvas._pts[i].x,canvas._pts[i].y);ctx.lineTo(canvas._pts[j].x,canvas._pts[j].y);ctx.stroke();}
+    }
+  } else if(bgId==='matrix'){
+    ctx.fillStyle='rgba(10,10,10,.15)';ctx.fillRect(0,0,w,h);
+    if(!canvas._cols){canvas._cols=Array.from({length:Math.ceil(w/14)},()=>Math.random()*h);}
+    ctx.fillStyle='#0f0';ctx.font='12px monospace';
+    canvas._cols.forEach((y,i)=>{
+      const ch=String.fromCharCode(0x30A0+Math.random()*96);
+      ctx.fillText(ch,i*14,y);
+      canvas._cols[i]=y>h+Math.random()*1e4?0:y+14;
+    });
+  } else if(bgId==='starfield'){
+    ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
+    if(!canvas._stars)canvas._stars=Array.from({length:100},()=>({x:Math.random()*w,y:Math.random()*h,r:.3+Math.random()*1.5,p:Math.random()*Math.PI*2}));
+    canvas._stars.forEach(s=>{
+      const a=.3+.7*Math.abs(Math.sin(t*.002+s.p));
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.fill();
+    });
+  } else if(bgId==='nebula'){
+    const g=ctx.createRadialGradient(w*.3,h*.4,0,w*.5,h*.5,w*.7);
+    g.addColorStop(0,bg.color1);g.addColorStop(.5,bg.color2);g.addColorStop(1,bg.color3);
+    ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    for(let i=0;i<5;i++){
+      const cx=w*(.2+.6*Math.sin(t*.0003+i*1.3)),cy=h*(.3+.4*Math.cos(t*.0004+i*.9));
+      const rg=ctx.createRadialGradient(cx,cy,0,cx,cy,w*.25);
+      rg.addColorStop(0,`rgba(${100+i*30},${50+i*20},${200-i*20},.12)`);rg.addColorStop(1,'transparent');
+      ctx.fillStyle=rg;ctx.fillRect(0,0,w,h);
+    }
+  } else if(bgId==='plasma'){
+    for(let x=0;x<w;x+=4)for(let y=0;y<h;y+=4){
+      const v=Math.sin(x*.01+t*.002)+Math.sin(y*.01+t*.0015)+Math.sin((x+y)*.007+t*.001)+Math.sin(Math.sqrt(x*x+y*y)*.005);
+      const r=Math.floor(128+127*Math.sin(v*Math.PI));
+      const g=Math.floor(128+127*Math.sin(v*Math.PI+2));
+      const b=Math.floor(128+127*Math.sin(v*Math.PI+4));
+      ctx.fillStyle=`rgb(${r>>1},${g>>2},${b>>1})`;ctx.fillRect(x,y,4,4);
+    }
+  }
+}
+
+function applyBg(bgId){
+  if(bgAnimId){cancelAnimationFrame(bgAnimId);bgAnimId=null;}
+  let el=document.getElementById('chat-bg-canvas');
+  if(!bgId){if(el)el.parentElement.remove();return;}
+  if(!el){
+    const wrap=document.createElement('div');wrap.className='chat-bg';
+    const c=document.createElement('canvas');c.id='chat-bg-canvas';
+    wrap.appendChild(c);
+    document.getElementById('carea').prepend(wrap);
+    el=c;
+  }
+  function resize(){el.width=el.parentElement.offsetWidth;el.height=el.parentElement.offsetHeight;el._cols=null;el._rain=null;el._flies=null;el._pts=null;el._stars=null;}
+  resize();
+  window.removeEventListener('resize',el._resizeFn);
+  el._resizeFn=resize;window.addEventListener('resize',resize);
+  function loop(t){drawBg(el,bgId,t);bgAnimId=requestAnimationFrame(loop);}
+  bgAnimId=requestAnimationFrame(loop);
+}
+
+function renderBgPreview(canvas,bgId){
+  canvas.width=200;canvas.height=60;
+  let frame=0;
+  function tick(){drawBg(canvas,bgId,frame);frame+=40;if(frame<2000)requestAnimationFrame(tick);}
+  requestAnimationFrame(tick);
+}
+
+function openBgShop(){
+  document.getElementById('bg-coins').textContent=me?.coins||0;
+  const list=document.getElementById('bg-list');
+  const owned=me?.ownedBgs||[];
+  const active=me?.chatBg||'';
+  list.innerHTML=CHAT_BGS.map(bg=>{
+    const isOwned=owned.includes(bg.id);
+    const isActive=active===bg.id;
+    const canAfford=(me?.coins||0)>=bg.cost;
+    let btn;
+    if(isActive) btn=`<button class="fs-btn remove" onclick="equipBg('')">Снять</button>`;
+    else if(isOwned) btn=`<button class="fs-btn equip" onclick="equipBg('${bg.id}')">Надеть</button>`;
+    else btn=`<button class="fs-btn buy" ${canAfford?'':'disabled'} onclick="buyBg('${bg.id}')">${bg.cost} 🪙</button>`;
+    return `<div class="fs-item">
+      <div class="bg-prev"><canvas id="bgprev_${bg.id}"></canvas></div>
+      <div class="fs-name">${bg.name}</div>
+      ${isOwned?`<div class="fs-owned">${isActive?'Активен':'Есть'}</div>`:`<div class="fs-cost">${bg.cost} монет</div>`}
+      ${btn}
+    </div>`;
+  }).join('');
+  OM('bgm');
+  // Render previews after DOM update
+  setTimeout(()=>{CHAT_BGS.forEach(bg=>{const c=document.getElementById('bgprev_'+bg.id);if(c)renderBgPreview(c,bg.id);});},50);
+}
+
+function buyBg(bgId){
+  emit('buy_bg',{bgId});
+}
+function equipBg(bgId){
+  emit('equip_bg',{bgId});
 }
 
 function avStyle(color,avatarUrl,frame=''){

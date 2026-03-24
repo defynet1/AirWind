@@ -589,6 +589,56 @@ wss.on('connection', ws => {
       const chat = await createGroupChat(payload.name||'Группа', payload.memberIds);
       clients.forEach((ci,cw)=>{ if(payload.memberIds.includes(ci.userId)) send(cw,{type:'chat_created',payload:{chat}}); });
 
+    } else if (type === 'invite_to_group') {
+      if (!inf) return;
+      const { chatId, userIds } = payload;
+      if (!chatId || !userIds?.length) return;
+      const chat = await dbGet(`SELECT * FROM chats WHERE id=$1 AND is_group=1`, [chatId]);
+      if (!chat) return send(ws,{type:'error',payload:{msg:'Группа не найдена'}});
+      const existing = (await dbAll(`SELECT user_id FROM chat_members WHERE chat_id=$1`, [chatId])).map(r=>r.user_id);
+      const newIds = userIds.filter(id => !existing.includes(id));
+      if (!newIds.length) return;
+      await Promise.all(newIds.map(uid => dbRun(`INSERT INTO chat_members(chat_id,user_id) VALUES($1,$2)`, [chatId, uid])));
+      const allMembers = [...existing, ...newIds];
+      const updatedChat = { id: chatId, isGroup: true, name: chat.name, members: allMembers };
+      const inviterName = (await getUserById(inf.userId))?.display_name || 'Кто-то';
+      const invitedNames = [];
+      for (const uid of newIds) { const u = await getUserById(uid); if (u) invitedNames.push(u.display_name); }
+      const sysText = `${inviterName} пригласил(а) ${invitedNames.join(', ')}`;
+      const sysMsg = { id: newId(), chatId, senderId: '__system__', text: sysText, ts: Date.now(), readBy: [] };
+      await dbRun(`INSERT INTO messages(id,chat_id,sender_id,text,ts) VALUES($1,$2,$3,$4,$5)`, [sysMsg.id, chatId, '__system__', sysText, sysMsg.ts]);
+      clients.forEach((ci,cw)=>{
+        if(allMembers.includes(ci.userId)){
+          send(cw,{type:'group_updated',payload:{chat:updatedChat}});
+          send(cw,{type:'new_message',payload:{msg:sysMsg}});
+        }
+      });
+      // Отправляем чат новым участникам
+      for (const uid of newIds) {
+        clients.forEach((ci,cw)=>{ if(ci.userId===uid) send(cw,{type:'chat_created',payload:{chat:updatedChat}}); });
+      }
+
+    } else if (type === 'leave_group') {
+      if (!inf) return;
+      const { chatId } = payload;
+      if (!chatId) return;
+      const chat = await dbGet(`SELECT * FROM chats WHERE id=$1 AND is_group=1`, [chatId]);
+      if (!chat) return send(ws,{type:'error',payload:{msg:'Группа не найдена'}});
+      await dbRun(`DELETE FROM chat_members WHERE chat_id=$1 AND user_id=$2`, [chatId, inf.userId]);
+      const remaining = (await dbAll(`SELECT user_id FROM chat_members WHERE chat_id=$1`, [chatId])).map(r=>r.user_id);
+      const leaver = await getUserById(inf.userId);
+      const sysText = `${leaver?.display_name||'Пользователь'} покинул(а) группу`;
+      const sysMsg = { id: newId(), chatId, senderId: '__system__', text: sysText, ts: Date.now(), readBy: [] };
+      await dbRun(`INSERT INTO messages(id,chat_id,sender_id,text,ts) VALUES($1,$2,$3,$4,$5)`, [sysMsg.id, chatId, '__system__', sysText, sysMsg.ts]);
+      send(ws,{type:'group_left',payload:{chatId}});
+      const updatedChat = { id: chatId, isGroup: true, name: chat.name, members: remaining };
+      clients.forEach((ci,cw)=>{
+        if(remaining.includes(ci.userId)){
+          send(cw,{type:'group_updated',payload:{chat:updatedChat}});
+          send(cw,{type:'new_message',payload:{msg:sysMsg}});
+        }
+      });
+
     } else if (type === 'load_more') {
       if (!inf) return;
       send(ws,{type:'chat_history_more',payload:{chatId:payload.chatId,messages:await getMessages(payload.chatId,50,payload.before)}});

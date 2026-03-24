@@ -696,6 +696,33 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Group Info Modal -->
+<div class="mo" id="gim">
+  <div class="md">
+    <button class="mclose" onclick="CM('gim')">✕</button>
+    <div class="mt" id="gim-title">Группа</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px" id="gim-count"></div>
+    <div style="max-height:300px;overflow-y:auto" id="gim-members"></div>
+    <div class="mact" style="margin-top:12px">
+      <button class="mbtn" style="background:rgba(99,102,241,.12);color:var(--ac);border:1px solid rgba(99,102,241,.25)" onclick="openInviteToGroup()">➕ Пригласить</button>
+      <button class="mbtn" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)" onclick="leaveCurrentGroup()">🚪 Покинуть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invite to Group Modal -->
+<div class="mo" id="igm">
+  <div class="md">
+    <button class="mclose" onclick="CM('igm')">✕</button>
+    <div class="mt">Пригласить в группу</div>
+    <div class="ulist" id="ig-ulist"></div>
+    <div class="mact">
+      <button class="mbtn g" onclick="CM('igm')">Отмена</button>
+      <button class="mbtn p" id="ig-btn" onclick="sendInvites()">Пригласить</button>
+    </div>
+  </div>
+</div>
+
 <!-- Admin Panel -->
 <div class="mo" id="adm">
   <div class="md">
@@ -926,6 +953,19 @@ function handle({type,payload}){
       if(!S.msgs[payload.chat.id])S.msgs[payload.chat.id]=[];
       renderList();
       if(pendingChat===payload.chat.id){pendingChat=null;openChat(payload.chat.id);}
+      break;
+
+    case 'group_updated':
+      S.chats[payload.chat.id]=payload.chat;
+      renderList();
+      if(openChatId===payload.chat.id)updateHeader(payload.chat.id);
+      break;
+
+    case 'group_left':
+      delete S.chats[payload.chatId];
+      delete S.msgs[payload.chatId];
+      if(openChatId===payload.chatId){openChatId=null;document.getElementById('achat').classList.add('hidden');document.getElementById('noc').classList.remove('hidden');document.querySelector('.stabs').classList.remove('hidden');mobileBack();}
+      renderList();
       break;
 
     case 'new_message':{
@@ -1258,10 +1298,15 @@ function updateHeader(id){
   const hAvUrl=otherU?.avatarUrl||'';
   av.textContent=avInner(nm,hAvUrl);
   av.style.cssText=`${avStyle(chatColor(c),hAvUrl,otherU?.frame||'')};background-size:cover;background-position:center;border-radius:50%;cursor:pointer`;
-  if(otherU)av.onclick=()=>viewUserProfile(otherU.id);
-  document.getElementById('chname').innerHTML=esc(nm)+verifiedHtml(otherU);
   if(c.isGroup){
-    document.getElementById('chsub').textContent=c.members.length+' участников';
+    av.onclick=()=>openGroupInfo(id);
+    document.getElementById('chname').innerHTML=`<span style="cursor:pointer" onclick="openGroupInfo('${id}')">${esc(nm)}</span>`;
+  } else {
+    if(otherU)av.onclick=()=>viewUserProfile(otherU.id);
+    document.getElementById('chname').innerHTML=esc(nm)+verifiedHtml(otherU);
+  }
+  if(c.isGroup){
+    document.getElementById('chsub').textContent=c.members.length+' участник'+memberSuffix(c.members.length);
   } else {
     const oid=c.members.find(i=>i!==me.id);
     const u=S.users[oid];
@@ -1301,6 +1346,9 @@ function appendMsg(m){
 }
 
 function bubbleHtml(m,isGroup){
+  if(m.senderId==='__system__'){
+    return `<div class="dchip"><span>${esc(m.text)}</span></div>`;
+  }
   const sent=m.senderId===me?.id;
   const time=`${String(new Date(m.ts).getHours()).padStart(2,'0')}:${String(new Date(m.ts).getMinutes()).padStart(2,'0')}`;
   const read=m.readBy.some(id=>id!==m.senderId);
@@ -1437,6 +1485,71 @@ function startChat(){
     emit('create_group_chat',{name:v('gni').trim()||'Группа',memberIds:[me.id,...selUsers]});
   }
   CM('ncm');
+}
+
+// ════════════════════════════════════
+//  GROUP INFO / INVITE / LEAVE
+// ════════════════════════════════════
+let groupInfoChatId=null, inviteSelUsers=[];
+
+function openGroupInfo(chatId){
+  const c=S.chats[chatId];
+  if(!c||!c.isGroup)return;
+  groupInfoChatId=chatId;
+  document.getElementById('gim-title').textContent=c.name||'Группа';
+  document.getElementById('gim-count').textContent=c.members.length+' участник'+memberSuffix(c.members.length);
+  const ml=document.getElementById('gim-members');
+  ml.innerHTML=c.members.map(uid=>{
+    const u=S.users[uid];if(!u)return '';
+    const online=S.online.has(uid);
+    return `<div class="urow" style="cursor:pointer" onclick="CM('gim');viewUserProfile('${uid}')">
+      <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${online?'<div class="online-dot"></div>':''}</div>
+      <div class="uri"><div class="urn">${esc(u.displayName)}${uid===me?.id?' <span style="color:var(--tx3);font-weight:400">(вы)</span>':''}</div><div class="uruu">@${esc(u.username)}</div></div>
+    </div>`;
+  }).join('');
+  OM('gim');
+}
+
+function openInviteToGroup(){
+  if(!groupInfoChatId)return;
+  const c=S.chats[groupInfoChatId];if(!c)return;
+  inviteSelUsers=[];
+  const others=Object.values(S.users).filter(u=>u.id!==me?.id&&!c.members.includes(u.id));
+  const list=document.getElementById('ig-ulist');
+  list.innerHTML=others.length
+    ?others.map(u=>`<div class="urow" id="ig_${u.id}" onclick="togInvite('${u.id}')">
+        <div class="av" style="${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};width:36px;height:36px;font-size:13px">${avInner(u.displayName,u.avatarUrl)}${S.online.has(u.id)?'<div class="online-dot"></div>':''}</div>
+        <div class="uri"><div class="urn">${esc(u.displayName)}</div><div class="uruu">@${esc(u.username)}</div></div>
+        <span class="chk">✓</span></div>`).join('')
+    :'<div style="padding:18px;text-align:center;color:var(--tx3);font-size:13px">Все пользователи уже в группе</div>';
+  document.getElementById('ig-btn').textContent='Пригласить';
+  CM('gim');OM('igm');
+}
+
+function togInvite(uid){
+  const i=inviteSelUsers.indexOf(uid);i>=0?inviteSelUsers.splice(i,1):inviteSelUsers.push(uid);
+  document.querySelectorAll('#ig-ulist .urow').forEach(r=>r.classList.remove('sel'));
+  inviteSelUsers.forEach(id=>{const r=document.getElementById('ig_'+id);if(r)r.classList.add('sel');});
+  document.getElementById('ig-btn').textContent=inviteSelUsers.length?`Пригласить (${inviteSelUsers.length})`:'Пригласить';
+}
+
+function sendInvites(){
+  if(!inviteSelUsers.length||!groupInfoChatId)return;
+  emit('invite_to_group',{chatId:groupInfoChatId,userIds:inviteSelUsers});
+  CM('igm');
+}
+
+function leaveCurrentGroup(){
+  if(!groupInfoChatId)return;
+  if(!confirm('Вы уверены, что хотите покинуть группу?'))return;
+  emit('leave_group',{chatId:groupInfoChatId});
+  CM('gim');
+}
+
+function memberSuffix(n){
+  if(n%10===1&&n%100!==11)return '';
+  if([2,3,4].includes(n%10)&&![12,13,14].includes(n%100))return 'а';
+  return 'ов';
 }
 
 // ════════════════════════════════════

@@ -120,6 +120,19 @@ async function initDB() {
     gift_id TEXT NOT NULL, ts BIGINT NOT NULL
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS sticker_packs (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL,
+    cover TEXT DEFAULT '', created_at BIGINT DEFAULT 0
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS sticker_items (
+    id TEXT PRIMARY KEY, pack_id TEXT NOT NULL, data TEXT NOT NULL,
+    emoji TEXT DEFAULT '', ts BIGINT DEFAULT 0
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS user_packs (
+    user_id TEXT NOT NULL, pack_id TEXT NOT NULL,
+    PRIMARY KEY (user_id, pack_id)
+  )`);
+
   // Indexes for performance (non-fatal if they fail)
   try {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, ts DESC)`);
@@ -979,6 +992,80 @@ wss.on('connection', ws => {
       await dbRun(`UPDATE users SET chat_bg=$1 WHERE id=$2`, [bgId||'', inf.userId]);
       const updBg = await getUserById(inf.userId);
       send(ws, {type:'profile_updated', payload:{user:safe(updBg)}});
+
+    // ── Sticker Packs ──
+    } else if (type === 'create_sticker_pack') {
+      if (!inf) return;
+      const name = String(payload.name||'').trim();
+      if (!name) return send(ws,{type:'error',payload:{msg:'Введите название набора'}});
+      const id = newId();
+      await dbRun(`INSERT INTO sticker_packs(id,name,owner_id,created_at) VALUES($1,$2,$3,$4)`, [id, name, inf.userId, Date.now()]);
+      await dbRun(`INSERT INTO user_packs(user_id,pack_id) VALUES($1,$2)`, [inf.userId, id]);
+      send(ws,{type:'pack_created',payload:{pack:{id,name,ownerId:inf.userId,cover:'',stickers:[]}}});
+
+    } else if (type === 'add_sticker_to_pack') {
+      if (!inf) return;
+      const { packId, data, emoji } = payload;
+      if (!packId||!data) return;
+      const pack = await dbGet(`SELECT * FROM sticker_packs WHERE id=$1`, [packId]);
+      if (!pack||pack.owner_id!==inf.userId) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const id = newId();
+      await dbRun(`INSERT INTO sticker_items(id,pack_id,data,emoji,ts) VALUES($1,$2,$3,$4,$5)`, [id, packId, data, emoji||'', Date.now()]);
+      if (!pack.cover) await dbRun(`UPDATE sticker_packs SET cover=$1 WHERE id=$2`, [data, packId]);
+      send(ws,{type:'sticker_added',payload:{packId,sticker:{id,data,emoji:emoji||''}}});
+
+    } else if (type === 'delete_sticker') {
+      if (!inf) return;
+      const { stickerId } = payload;
+      const st = await dbGet(`SELECT si.*, sp.owner_id FROM sticker_items si JOIN sticker_packs sp ON sp.id=si.pack_id WHERE si.id=$1`, [stickerId]);
+      if (!st||st.owner_id!==inf.userId) return;
+      await dbRun(`DELETE FROM sticker_items WHERE id=$1`, [stickerId]);
+      send(ws,{type:'sticker_deleted',payload:{stickerId,packId:st.pack_id}});
+
+    } else if (type === 'delete_sticker_pack') {
+      if (!inf) return;
+      const { packId } = payload;
+      const pack = await dbGet(`SELECT * FROM sticker_packs WHERE id=$1`, [packId]);
+      if (!pack||pack.owner_id!==inf.userId) return;
+      await dbRun(`DELETE FROM sticker_items WHERE pack_id=$1`, [packId]);
+      await dbRun(`DELETE FROM user_packs WHERE pack_id=$1`, [packId]);
+      await dbRun(`DELETE FROM sticker_packs WHERE id=$1`, [packId]);
+      send(ws,{type:'pack_deleted',payload:{packId}});
+
+    } else if (type === 'get_my_packs') {
+      if (!inf) return;
+      const packs = await dbAll(`SELECT sp.* FROM sticker_packs sp JOIN user_packs up ON up.pack_id=sp.id WHERE up.user_id=$1 ORDER BY sp.created_at DESC`, [inf.userId]);
+      const result = [];
+      for (const p of packs) {
+        const stickers = await dbAll(`SELECT id,data,emoji FROM sticker_items WHERE pack_id=$1 ORDER BY ts`, [p.id]);
+        result.push({id:p.id, name:p.name, ownerId:p.owner_id, cover:p.cover||'', stickers});
+      }
+      send(ws,{type:'my_packs',payload:{packs:result}});
+
+    } else if (type === 'get_all_packs') {
+      if (!inf) return;
+      const packs = await dbAll(`SELECT sp.*, CASE WHEN up.user_id IS NOT NULL THEN 1 ELSE 0 END as installed FROM sticker_packs sp LEFT JOIN user_packs up ON up.pack_id=sp.id AND up.user_id=$1 ORDER BY sp.created_at DESC`, [inf.userId]);
+      const result = [];
+      for (const p of packs) {
+        const stickers = await dbAll(`SELECT id,data,emoji FROM sticker_items WHERE pack_id=$1 ORDER BY ts`, [p.id]);
+        result.push({id:p.id, name:p.name, ownerId:p.owner_id, cover:p.cover||'', installed:!!p.installed, stickers});
+      }
+      send(ws,{type:'all_packs',payload:{packs:result}});
+
+    } else if (type === 'install_pack') {
+      if (!inf) return;
+      const { packId } = payload;
+      const exists = await dbGet(`SELECT 1 FROM user_packs WHERE user_id=$1 AND pack_id=$2`, [inf.userId, packId]);
+      if (!exists) await dbRun(`INSERT INTO user_packs(user_id,pack_id) VALUES($1,$2)`, [inf.userId, packId]);
+      send(ws,{type:'pack_installed',payload:{packId}});
+
+    } else if (type === 'uninstall_pack') {
+      if (!inf) return;
+      const { packId } = payload;
+      const pack = await dbGet(`SELECT * FROM sticker_packs WHERE id=$1`, [packId]);
+      if (pack&&pack.owner_id===inf.userId) return send(ws,{type:'error',payload:{msg:'Нельзя удалить свой набор'}});
+      await dbRun(`DELETE FROM user_packs WHERE user_id=$1 AND pack_id=$2`, [inf.userId, packId]);
+      send(ws,{type:'pack_uninstalled',payload:{packId}});
 
     } else if (type === 'admin_verify') {
       if (!inf) return;

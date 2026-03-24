@@ -177,6 +177,27 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .mb.sticker{background:transparent!important;border:none!important;padding:2px 0!important;box-shadow:none!important}
 .sticker-img{width:160px;height:160px;object-fit:contain;border-radius:14px;display:block;filter:drop-shadow(0 4px 12px rgba(0,0,0,.35));cursor:zoom-in;transition:transform .15s}
 .sticker-img:hover{transform:scale(1.05)}
+
+/* ── STICKER PACKS PANEL ── */
+.sp-panel{background:rgba(15,17,22,.95);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);border-radius:14px;margin-bottom:6px;max-height:260px;display:flex;flex-direction:column}
+.sp-panel.hidden{display:none}
+.sp-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.06);overflow-x:auto;flex-shrink:0;gap:0}
+.sp-tabs::-webkit-scrollbar{height:0}
+.sp-tab{background:none;border:none;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--tx3);white-space:nowrap;border-bottom:2px solid transparent;transition:.15s}
+.sp-tab.on{color:var(--ac);border-bottom-color:var(--ac)}
+.sp-tab img{width:24px;height:24px;object-fit:contain;border-radius:4px}
+.sp-body{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-content:start}
+.sp-body::-webkit-scrollbar{width:3px}
+.sp-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+.sp-sticker{cursor:pointer;border-radius:8px;overflow:hidden;aspect-ratio:1;display:flex;align-items:center;justify-content:center;transition:transform .12s;background:rgba(255,255,255,.03)}
+.sp-sticker:hover{transform:scale(1.1);background:rgba(255,255,255,.07)}
+.sp-sticker img{width:100%;height:100%;object-fit:contain}
+.sp-actions{display:flex;gap:6px;padding:6px 8px;border-top:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.sp-actions button{font-size:11px;padding:4px 10px;border-radius:8px;border:none;cursor:pointer;font-weight:500;transition:.15s}
+.sp-add-btn{background:rgba(99,102,241,.15);color:var(--ac)}
+.sp-add-btn:hover{background:rgba(99,102,241,.25)}
+.sp-cat-btn{background:rgba(52,211,153,.12);color:var(--green)}
+.sp-cat-btn:hover{background:rgba(52,211,153,.22)}
 .stbtn{width:36px;height:36px;border-radius:10px;border:none;background:transparent;color:var(--tx2);cursor:pointer;font-size:19px;display:flex;align-items:center;justify-content:center;transition:.15s;flex-shrink:0}
 .stbtn:hover{background:var(--sf2);color:var(--tx)}
 
@@ -556,10 +577,18 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
           <button class="edit-strip-close" onclick="clearEdit()">✕</button>
         </div>
         <div class="emoji-panel hidden" id="emoji-panel"></div>
+        <div class="sp-panel hidden" id="sp-panel">
+          <div class="sp-tabs" id="sp-tabs"></div>
+          <div class="sp-body" id="sp-body"></div>
+          <div class="sp-actions">
+            <button class="sp-add-btn" onclick="openCreatePack()">＋ Создать набор</button>
+            <button class="sp-cat-btn" onclick="openStickerCatalog()">📦 Каталог</button>
+          </div>
+        </div>
         <div class="irow">
           <button class="stbtn" title="Эмодзи" onclick="toggleEmojiPanel()">😊</button>
-          <button class="stbtn" title="Стикер / GIF" onclick="document.getElementById('stickerfile').click()">🎭</button>
-          <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="sendSticker(this)">
+          <button class="stbtn" title="Стикеры" onclick="toggleStickerPanel()">🎭</button>
+          <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="addStickerFile(this)">
           <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>
           <input type="file" id="mediafile" accept="audio/*,video/*" style="display:none" onchange="sendMedia(this)">
           <textarea class="minput" id="minput" rows="1" placeholder="Написать сообщение..."
@@ -907,6 +936,41 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Create Sticker Pack Modal -->
+<div class="mo" id="cpm">
+  <div class="md" style="max-width:360px">
+    <button class="mclose" onclick="CM('cpm')">✕</button>
+    <div class="mt">Создать набор стикеров</div>
+    <div class="afield" style="margin-bottom:12px"><input id="cp-name" placeholder="Название набора"></div>
+    <div class="mact">
+      <button class="mbtn g" onclick="CM('cpm')">Отмена</button>
+      <button class="mbtn p" onclick="doCreatePack()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sticker Catalog Modal -->
+<div class="mo" id="scm">
+  <div class="md" style="max-width:480px">
+    <button class="mclose" onclick="CM('scm')">✕</button>
+    <div class="mt">Каталог стикеров</div>
+    <div id="sc-list" style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<!-- Manage Pack Modal -->
+<div class="mo" id="mpm">
+  <div class="md" style="max-width:420px">
+    <button class="mclose" onclick="CM('mpm')">✕</button>
+    <div class="mt" id="mp-title">Набор</div>
+    <div id="mp-stickers" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;max-height:240px;overflow-y:auto"></div>
+    <div class="mact">
+      <button class="mbtn" style="background:rgba(99,102,241,.12);color:var(--ac);border:1px solid rgba(99,102,241,.25)" onclick="document.getElementById('stickerfile').click()">＋ Добавить стикер</button>
+      <button class="mbtn" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)" id="mp-del-btn" onclick="doDeletePack()">Удалить набор</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════
 //  STATE
@@ -1177,6 +1241,31 @@ function handle({type,payload}){
       const bg=ANIM_BGS.find(x=>x.id===payload.bgId);
       if(bg) alert(`✅ Фон «${bg.name}» куплен и применён!`);
       break;}
+
+    case 'my_packs':
+      myPacks=payload.packs;renderStickerPanel();break;
+    case 'all_packs':
+      renderCatalog(payload.packs);break;
+    case 'pack_created':
+      myPacks.push(payload.pack);spActiveTab=myPacks.length-1;renderStickerPanel();break;
+    case 'pack_deleted':
+      myPacks=myPacks.filter(p=>p.id!==payload.packId);renderStickerPanel();break;
+    case 'sticker_added':{
+      const pk=myPacks.find(p=>p.id===payload.packId);
+      if(pk){pk.stickers.push(payload.sticker);if(!pk.cover)pk.cover=payload.sticker.data;}
+      renderStickerPanel();
+      if(managingPackId===payload.packId&&document.getElementById('mpm')?.classList.contains('on'))managePack(myPacks.findIndex(p=>p.id===payload.packId));
+      break;}
+    case 'sticker_deleted':{
+      const pk2=myPacks.find(p=>p.id===payload.packId);
+      if(pk2)pk2.stickers=pk2.stickers.filter(s=>s.id!==payload.stickerId);
+      renderStickerPanel();
+      if(managingPackId===payload.packId&&document.getElementById('mpm')?.classList.contains('on'))managePack(myPacks.findIndex(p=>p.id===payload.packId));
+      break;}
+    case 'pack_installed':
+      emit('get_my_packs',{});emit('get_all_packs',{});break;
+    case 'pack_uninstalled':
+      myPacks=myPacks.filter(p=>p.id!==payload.packId);renderStickerPanel();emit('get_all_packs',{});break;
 
     case 'promo_ok':
       if(payload.msg) alert(payload.msg);
@@ -1513,6 +1602,7 @@ let emojiCat=Object.keys(EMOJI_CATS)[0];
 
 function toggleEmojiPanel(){
   const p=document.getElementById('emoji-panel');
+  document.getElementById('sp-panel').classList.add('hidden');
   if(!p.classList.contains('hidden')){p.classList.add('hidden');return;}
   renderEmojiPanel();
   p.classList.remove('hidden');
@@ -2370,36 +2460,155 @@ function updateCoins(n){
   b.style.display='flex';
 }
 
-// enter keys
 // ════════════════════════════════════
-//  STICKERS
+//  STICKER PACKS
 // ════════════════════════════════════
-function sendSticker(inp){
-  const file=inp.files[0]; if(!file||!openChatId) return;
-  if(file.type==='image/gif'){
-    if(file.size>5*1024*1024) return alert('GIF слишком большой (макс. 5 МБ)');
-    const reader=new FileReader();
-    reader.onload=e=>{ emit('send_message',{chatId:openChatId,text:'',sticker:e.target.result}); };
-    reader.readAsDataURL(file);
-    inp.value=''; return;
+let myPacks=[], spActiveTab=0, managingPackId=null;
+
+function toggleStickerPanel(){
+  const p=document.getElementById('sp-panel');
+  document.getElementById('emoji-panel').classList.add('hidden');
+  if(!p.classList.contains('hidden')){p.classList.add('hidden');return;}
+  emit('get_my_packs',{});
+  p.classList.remove('hidden');
+}
+function renderStickerPanel(){
+  const tabs=document.getElementById('sp-tabs');
+  const body=document.getElementById('sp-body');
+  if(!myPacks.length){
+    tabs.innerHTML='';
+    body.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--tx3);font-size:13px">Нет наборов. Создайте свой или найдите в каталоге.</div>';
+    return;
   }
+  if(spActiveTab>=myPacks.length)spActiveTab=0;
+  tabs.innerHTML=myPacks.map((p,i)=>
+    `<button class="sp-tab${i===spActiveTab?' on':''}" onclick="spActiveTab=${i};renderStickerPanel()" title="${esc(p.name)}">${p.cover?`<img src="${p.cover}">`:(p.name[0]||'?')}</button>`
+  ).join('')+`<button class="sp-tab" onclick="managePack(spActiveTab)" title="Управление">⚙️</button>`;
+  const pack=myPacks[spActiveTab];
+  if(!pack.stickers.length){
+    body.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:18px;color:var(--tx3);font-size:12px">Пустой набор. Добавьте стикеры.</div>';
+    return;
+  }
+  body.innerHTML=pack.stickers.map(s=>
+    `<div class="sp-sticker" onclick="sendStickerData('${s.data.replace(/'/g,"\\'")}')"><img src="${s.data}" loading="lazy"></div>`
+  ).join('');
+}
+function sendStickerData(data){
+  if(!openChatId)return;
+  emit('send_message',{chatId:openChatId,text:'',sticker:data});
+  document.getElementById('sp-panel').classList.add('hidden');
+}
+
+function openCreatePack(){
+  document.getElementById('cp-name').value='';
+  OM('cpm');
+}
+function doCreatePack(){
+  const name=document.getElementById('cp-name').value.trim();
+  if(!name)return alert('Введите название');
+  emit('create_sticker_pack',{name});
+  CM('cpm');
+}
+
+function managePack(idx){
+  const pack=myPacks[idx];if(!pack)return;
+  managingPackId=pack.id;
+  document.getElementById('mp-title').textContent=pack.name;
+  const isOwner=pack.ownerId===me?.id;
+  document.getElementById('mp-del-btn').style.display=isOwner?'':'none';
+  document.getElementById('mp-stickers').innerHTML=pack.stickers.length
+    ?pack.stickers.map(s=>`<div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:rgba(255,255,255,.03)">
+        <img src="${s.data}" style="width:100%;height:100%;object-fit:contain">
+        ${isOwner?`<button style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);border:none;color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center" onclick="doDeleteSticker('${s.id}')">✕</button>`:''}
+      </div>`).join('')
+    :'<div style="grid-column:1/-1;text-align:center;padding:18px;color:var(--tx3);font-size:12px">Нет стикеров</div>';
+  OM('mpm');
+}
+function doDeletePack(){
+  if(!managingPackId)return;
+  if(!confirm('Удалить весь набор?'))return;
+  emit('delete_sticker_pack',{packId:managingPackId});
+  CM('mpm');
+}
+function doDeleteSticker(id){
+  emit('delete_sticker',{stickerId:id});
+}
+
+function addStickerFile(inp){
+  const file=inp.files[0]; if(!file) return;
+  // Если панель управления открыта — добавляем в пак
+  if(managingPackId&&document.getElementById('mpm')?.classList.contains('on')){
+    processImageForPack(file,managingPackId);
+    inp.value='';return;
+  }
+  // Иначе — отправляем как стикер напрямую (старое поведение)
+  if(!openChatId){inp.value='';return;}
+  if(file.type==='image/gif'){
+    if(file.size>5*1024*1024){alert('GIF слишком большой (макс. 5 МБ)');inp.value='';return;}
+    const reader=new FileReader();
+    reader.onload=e=>emit('send_message',{chatId:openChatId,text:'',sticker:e.target.result});
+    reader.readAsDataURL(file);inp.value='';return;
+  }
+  processImageToSend(file);inp.value='';
+}
+function processImageForPack(file,packId){
   const reader=new FileReader();
   reader.onload=e=>{
     const img=new Image();
     img.onload=()=>{
-      const size=256;
-      const c=document.createElement('canvas'); c.width=c.height=size;
+      const size=256;const c=document.createElement('canvas');c.width=c.height=size;
       const ctx=c.getContext('2d');
       const scale=Math.min(size/img.width,size/img.height);
-      const w=img.width*scale, h=img.height*scale;
+      const w=img.width*scale,h=img.height*scale;
+      ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
+      emit('add_sticker_to_pack',{packId,data:c.toDataURL('image/png',1.0)});
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function processImageToSend(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const size=256;const c=document.createElement('canvas');c.width=c.height=size;
+      const ctx=c.getContext('2d');
+      const scale=Math.min(size/img.width,size/img.height);
+      const w=img.width*scale,h=img.height*scale;
       ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);
       emit('send_message',{chatId:openChatId,text:'',sticker:c.toDataURL('image/png',1.0)});
     };
     img.src=e.target.result;
   };
   reader.readAsDataURL(file);
-  inp.value='';
 }
+
+function openStickerCatalog(){
+  emit('get_all_packs',{});
+  OM('scm');
+}
+function renderCatalog(packs){
+  const list=document.getElementById('sc-list');
+  list.innerHTML=packs.length?packs.map(p=>{
+    const owner=S.users[p.ownerId];
+    const ownerName=owner?esc(owner.displayName):'???';
+    const installed=p.installed;
+    const isMine=p.ownerId===me?.id;
+    const preview=p.stickers.slice(0,6).map(s=>`<img src="${s.data}" style="width:48px;height:48px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.03)">`).join('');
+    return `<div style="background:var(--sf2);border-radius:12px;padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div><div style="font-size:14px;font-weight:600">${esc(p.name)}</div><div style="font-size:11px;color:var(--tx3)">от ${ownerName} · ${p.stickers.length} стикеров</div></div>
+        ${isMine?'':installed
+          ?`<button class="fs-btn remove" onclick="doUninstallPack('${p.id}')">Удалить</button>`
+          :`<button class="fs-btn equip" onclick="doInstallPack('${p.id}')">Добавить</button>`}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${preview||'<span style="color:var(--tx3);font-size:12px">Пустой набор</span>'}</div>
+    </div>`;
+  }).join(''):'<div style="text-align:center;padding:24px;color:var(--tx3);font-size:13px">Нет наборов</div>';
+}
+function doInstallPack(id){emit('install_pack',{packId:id});}
+function doUninstallPack(id){emit('uninstall_pack',{packId:id});}
 
 async function sendMedia(inp){
   const file=inp.files[0]; if(!file||!openChatId) return;

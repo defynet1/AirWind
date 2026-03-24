@@ -1517,19 +1517,19 @@ function toggleEmojiPanel(){
   renderEmojiPanel();
   p.classList.remove('hidden');
 }
+function splitEmojis(str){
+  if(typeof Intl!=='undefined'&&Intl.Segmenter){
+    return [...new Intl.Segmenter('en',{granularity:'grapheme'}).segment(str)].map(s=>s.segment).filter(s=>s.trim());
+  }
+  return str.match(/\p{Emoji_Presentation}(\u200D\p{Emoji_Presentation})*/gu)||[];
+}
 function renderEmojiPanel(){
   const p=document.getElementById('emoji-panel');
   const tabs=Object.entries(EMOJI_CATS).map(([k,v])=>
     `<button class="${k===emojiCat?'on':''}" onclick="emojiCat='${k}';renderEmojiPanel()" title="${v.name}">${k}</button>`
   ).join('');
-  const emojis=[...EMOJI_CATS[emojiCat].emoji].filter(c=>c.trim()).reduce((acc,ch)=>{
-    if(acc.length&&acc[acc.length-1].length===1&&/[\uD800-\uDBFF]/.test(acc[acc.length-1]))acc[acc.length-1]+=ch;
-    else if(acc.length&&/[\u200D\uFE0F]/.test(ch))acc[acc.length-1]+=ch;
-    else if(acc.length&&/[\uDC00-\uDFFF]/.test(ch))acc[acc.length-1]+=ch;
-    else acc.push(ch);
-    return acc;
-  },[]);
-  const btns=emojis.map(e=>`<button class="ebtn" onclick="insertEmoji('${e}')">${e}</button>`).join('');
+  const emojis=splitEmojis(EMOJI_CATS[emojiCat].emoji);
+  const btns=emojis.map(e=>`<button class="ebtn" onclick="insertEmoji(this.textContent)">${e}</button>`).join('');
   p.innerHTML=`<div class="etab">${tabs}</div>${btns}`;
 }
 function insertEmoji(e){

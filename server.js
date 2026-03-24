@@ -120,16 +120,18 @@ async function initDB() {
     gift_id TEXT NOT NULL, ts BIGINT NOT NULL
   )`);
 
-  // Indexes for performance
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, ts DESC)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_members_channel ON channel_members(channel_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_members_user ON channel_members(user_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_channel_ts ON channel_posts(channel_id, ts DESC)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_post_reactions_post ON channel_post_reactions(post_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts DESC)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_read_receipts_msg ON read_receipts(msg_id)`);
-  await pool.query(`CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_user_id)`);
+  // Indexes for performance (non-fatal if they fail)
+  try {
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, ts DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_members_channel ON channel_members(channel_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_members_user ON channel_members(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_posts_channel_ts ON channel_posts(channel_id, ts DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_channel_post_reactions_post ON channel_post_reactions(post_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_posts_ts ON posts(ts DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_read_receipts_msg ON read_receipts(msg_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_user_id)`);
+  } catch(e) { console.warn('Index creation warning:', e.message); }
 
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {
@@ -1042,4 +1044,7 @@ initDB().then(() => {
     console.log(`\n✅ AirWind → http://localhost:${PORT}`);
     console.log(`📡 Локальная сеть → найди свой IP и открой http://<IP>:${PORT}\n`);
   });
+}).catch(e => {
+  console.error('❌ Не удалось запустить сервер:', e.message);
+  process.exit(1);
 });

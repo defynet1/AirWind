@@ -1159,7 +1159,7 @@ function handle({type,payload}){
       break;}
 
     case 'bg_ok':{
-      const bg=CHAT_BGS.find(x=>x.id===payload.bgId);
+      const bg=ANIM_BGS.find(x=>x.id===payload.bgId);
       if(bg) alert(`✅ Фон «${bg.name}» куплен и применён!`);
       break;}
 
@@ -2037,7 +2037,7 @@ function badgeHtml(badgeId){
 // ════════════════════════════════════
 //  ANIMATED BACKGROUNDS
 // ════════════════════════════════════
-const CHAT_BGS=[
+const ANIM_BGS=[
   {id:'gradient',  name:'Градиент',   cost:20,  color1:'#1a1a2e',color2:'#16213e',color3:'#0f3460'},
   {id:'aurora',    name:'Северное сияние', cost:30, color1:'#0f3460',color2:'#533483',color3:'#0e6655'},
   {id:'rain',      name:'Дождь',      cost:35,  color1:'#1a1a2e'},
@@ -2054,7 +2054,7 @@ let bgAnimId=null;
 function drawBg(canvas,bgId,t){
   const ctx=canvas.getContext('2d');
   const w=canvas.width, h=canvas.height;
-  const bg=CHAT_BGS.find(b=>b.id===bgId);
+  const bg=ANIM_BGS.find(b=>b.id===bgId);
   if(!bg){ctx.clearRect(0,0,w,h);return;}
   ctx.clearRect(0,0,w,h);
 
@@ -2187,7 +2187,7 @@ function openBgShop(){
   const list=document.getElementById('bg-list');
   const owned=me?.ownedBgs||[];
   const active=me?.chatBg||'';
-  list.innerHTML=CHAT_BGS.map(bg=>{
+  list.innerHTML=ANIM_BGS.map(bg=>{
     const isOwned=owned.includes(bg.id);
     const isActive=active===bg.id;
     const canAfford=(me?.coins||0)>=bg.cost;
@@ -2204,7 +2204,7 @@ function openBgShop(){
   }).join('');
   OM('bgm');
   // Render previews after DOM update
-  setTimeout(()=>{CHAT_BGS.forEach(bg=>{const c=document.getElementById('bgprev_'+bg.id);if(c)renderBgPreview(c,bg.id);});},50);
+  setTimeout(()=>{ANIM_BGS.forEach(bg=>{const c=document.getElementById('bgprev_'+bg.id);if(c)renderBgPreview(c,bg.id);});},50);
 }
 
 function buyBg(bgId){

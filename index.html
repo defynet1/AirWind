@@ -115,7 +115,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .noc-ico{width:64px;height:64px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-size:28px;opacity:.5}
 
 /* ── INPUT BAR ── */
-.ibar{padding:10px 16px 14px;border-top:1px solid rgba(255,255,255,.06);background:rgba(15,17,22,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin-bottom:52px}
+.ibar{padding:10px 16px 14px;border-top:1px solid rgba(255,255,255,.06);background:rgba(15,17,22,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin-bottom:0}
 .reply-strip{display:none;align-items:center;gap:8px;padding:6px 10px;background:var(--sf2);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--ac)}
 .reply-strip.on{display:flex}
 .reply-strip-text{flex:1;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -413,10 +413,6 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   #sidebar.mob-hidden{display:none}
   #carea{position:absolute;inset:0;z-index:11;display:none;flex-direction:column}
   #carea.mob-open{display:flex}
-  #carea.mob-open .ibar{margin-bottom:0}
-  #carea.mob-open~.stabs{display:none}
-  #charea.on~.stabs{display:none}
-  #charea.on .ch-ibar{margin-bottom:0}
   #farea{position:absolute;inset:0;z-index:11}
   #farea.on{padding-bottom:60px}
   #charea{position:absolute;inset:0;z-index:11}
@@ -424,7 +420,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   .mob-back{display:flex!important;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:var(--tx2);cursor:pointer;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-right:4px}
   .mob-back:hover{background:var(--sf2);color:var(--tx)}
   #msgs{padding:10px 12px}
-  .ibar{padding:8px 10px 10px;margin-bottom:60px}
+  .ibar{padding:8px 10px 10px;margin-bottom:0}
   .mb{max-width:82%}
   .stabs{bottom:0;left:0;right:0;transform:none;border-radius:0;padding:8px 0;justify-content:space-around;gap:0}
   .stab{width:52px;height:44px;font-size:22px;border-radius:50%}
@@ -444,12 +440,13 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   .chname{font-size:14px}
   .minput{font-size:14px;padding:9px 12px}
   #channels-panel{height:calc(100vh - 120px)}
-  .ch-ibar{margin-bottom:60px}
+  .ch-ibar{margin-bottom:0}
   #ch-posts{padding-bottom:10px}
   .noc-ch{padding-bottom:70px}
 }
 @media(min-width:769px){
-  .mob-back{display:none!important}
+  .mob-back{display:flex!important;width:32px;height:32px;border-radius:8px;border:none;background:transparent;color:var(--tx2);cursor:pointer;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-right:4px}
+  .mob-back:hover{background:var(--sf2);color:var(--tx)}
 }
 </style>
 </head>
@@ -515,7 +512,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     </div>
     <div id="achat" class="hidden" style="display:flex;flex-direction:column;height:100%">
       <div class="ch">
-        <button class="mob-back" onclick="mobileBack()" style="display:none">←</button>
+        <button class="mob-back" onclick="mobileBack()">←</button>
         <div class="av" id="chav" style="border-radius:50%;cursor:pointer"></div>
         <div class="chi">
           <div class="chname" id="chname"></div>
@@ -562,7 +559,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     </div>
     <div id="achannel" class="hidden" style="display:flex;flex-direction:column;height:100%">
       <div class="ch" id="ch-hdr">
-        <button class="mob-back" onclick="mobileBackChannels()" style="display:none">←</button>
+        <button class="mob-back" onclick="mobileBackChannels()">←</button>
         <div class="ch-av" id="ch-hdr-av"></div>
         <div class="chi">
           <div class="chname" id="ch-hdr-name"></div>
@@ -587,7 +584,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   <!-- Feed Area -->
   <div id="farea">
     <div class="feed-hdr">
-      <button class="mob-back" onclick="mobileBack()" style="display:none">←</button>
+      <button class="mob-back" onclick="mobileBack()">←</button>
       <div class="feed-hdr-title">Лента</div>
       <button class="new-post-btn" onclick="openPostModal()">📷 Новая запись</button>
     </div>
@@ -1213,11 +1210,13 @@ function openChat(id){
   const ac=document.getElementById('achat');
   ac.classList.remove('hidden');ac.style.display='flex';
   document.querySelector('.ibar').style.display='';
+  document.querySelector('.stabs').classList.add('hidden');
   updateHeader(id);renderMsgs(id);renderList();
   mobShowView('chat');
   document.getElementById('minput').focus();
 }
 function mobileBack(){
+  document.querySelector('.stabs').classList.remove('hidden');
   if(sideTab==='chats'){
     document.getElementById('sidebar').classList.remove('mob-hidden');
     document.getElementById('carea').classList.remove('mob-open');
@@ -1227,13 +1226,15 @@ function mobileBack(){
   }
 }
 function mobileBackChannels(){
+  document.querySelector('.stabs').classList.remove('hidden');
+  document.getElementById('achannel').classList.add('hidden');
+  document.getElementById('noc-ch').style.display='';
+  document.getElementById('noc-ch').classList.remove('hidden');
+  openChannelId=null;
+  renderChannelList();
   if(isMobile()){
-    document.getElementById('achannel').classList.add('hidden');
-    document.getElementById('noc-ch').classList.remove('hidden');
     document.getElementById('charea').classList.remove('on');
     document.getElementById('sidebar').classList.remove('mob-hidden');
-    openChannelId=null;
-    renderChannelList();
   }
 }
 function updateHeader(id){
@@ -1530,6 +1531,7 @@ function openRulesChat(){
   document.getElementById('noc').classList.add('hidden');
   const ac=document.getElementById('achat');
   ac.classList.remove('hidden');ac.style.display='flex';
+  document.querySelector('.stabs').classList.add('hidden');
   updateHeader('__rules__');
   renderList();
   mobShowView('chat');
@@ -2110,6 +2112,7 @@ function pickReaction(id,emoji,type){
 // ════════════════════════════════════
 function switchSideTab(tab){
   sideTab=tab;
+  document.querySelector('.stabs').classList.remove('hidden');
   document.getElementById('stab-chats').classList.toggle('on',tab==='chats');
   document.getElementById('stab-feed').classList.toggle('on',tab==='feed');
   document.getElementById('stab-channels').classList.toggle('on',tab==='channels');
@@ -2447,6 +2450,7 @@ function openChannel(id){
   document.getElementById('noc-ch').style.display='none';
   const ac=document.getElementById('achannel');
   ac.classList.remove('hidden'); ac.style.display='flex';
+  document.querySelector('.stabs').classList.add('hidden');
   renderChannelHeader(S.channels[id]);
   renderChanPosts(id,true);
   if(!S.chanPosts[id]||!S.chanPosts[id].length) emit('load_channel_posts',{channelId:id});

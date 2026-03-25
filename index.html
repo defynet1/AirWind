@@ -218,6 +218,28 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 audio::-webkit-media-controls-panel{background:var(--sf3)}
 .mb.media-msg{min-width:260px}
 
+/* ── VOICE ── */
+.voice-wrap{display:flex;align-items:center;gap:8px;min-width:200px}
+.voice-wrap audio{flex:1;height:32px;outline:none;border-radius:10px}
+.voice-dur{font-size:11px;color:var(--tx3);font-family:var(--mono);white-space:nowrap}
+
+/* ── VIDEO CIRCLE ── */
+.vcircle{width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:pointer;position:relative;background:#000;flex-shrink:0}
+.vcircle video{width:100%;height:100%;object-fit:cover;display:block}
+.vcircle .vc-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);opacity:1;transition:opacity .2s;font-size:36px;pointer-events:none}
+.vcircle.playing .vc-play{opacity:0}
+.mb.vc-msg{background:transparent!important;box-shadow:none!important;padding:4px!important}
+.mr.sent .mb.vc-msg{background:transparent!important}
+
+/* ── RECORDING INDICATOR ── */
+.rec-bar{display:none;align-items:center;gap:8px;padding:8px 14px;background:var(--sf2);border-top:1px solid var(--brd)}
+.rec-bar.on{display:flex}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;animation:recPulse 1s infinite}
+@keyframes recPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.rec-timer{font-size:13px;color:var(--tx2);font-family:var(--mono);flex:1}
+.rec-cancel{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:4px 8px}
+.rec-send{background:var(--ac);border:none;color:#fff;cursor:pointer;font-size:13px;padding:6px 14px;border-radius:16px}
+
 /* ── REACTIONS ── */
 .rpicker{position:fixed;z-index:300;background:rgba(15,17,22,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:50px;padding:6px 12px;display:flex;gap:2px;box-shadow:0 12px 40px rgba(0,0,0,.65),0 0 0 1px rgba(99,102,241,.08);animation:pop .15s cubic-bezier(.34,1.56,.64,1)}
 .rpicker-btn{background:none;border:none;font-size:21px;cursor:pointer;padding:3px 5px;border-radius:50%;transition:transform .12s;line-height:1}
@@ -585,12 +607,21 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
             <button class="sp-cat-btn" onclick="openStickerCatalog()">📦 Каталог</button>
           </div>
         </div>
-        <div class="irow">
+        <div class="rec-bar" id="rec-bar">
+          <div class="rec-dot"></div>
+          <span class="rec-timer" id="rec-timer">0:00</span>
+          <span id="rec-label" style="font-size:12px;color:var(--tx3)"></span>
+          <button class="rec-cancel" onclick="cancelRecording()">Отмена</button>
+          <button class="rec-send" onclick="stopAndSendRecording()">Отправить</button>
+        </div>
+        <div class="irow" id="input-row">
           <button class="stbtn" title="Эмодзи" onclick="toggleEmojiPanel()">😊</button>
           <button class="stbtn" title="Стикеры" onclick="toggleStickerPanel()">🎭</button>
           <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="addStickerFile(this)">
           <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>
           <input type="file" id="mediafile" accept="audio/*,video/*" style="display:none" onchange="sendMedia(this)">
+          <button class="stbtn" title="Голосовое" onclick="startVoiceRecording()">🎤</button>
+          <button class="stbtn" title="Кружочек" onclick="startVideoCircleRecording()">🔴</button>
           <textarea class="minput" id="minput" rows="1" placeholder="Написать сообщение..."
             oninput="onInput(this)"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg()}"></textarea>
@@ -677,6 +708,25 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <input id="cmm-inp" class="cminput" placeholder="Написать комментарий..."
         onkeydown="if(event.key==='Enter')submitComment()">
       <button class="sbtn" onclick="submitComment()">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- Video Circle Preview -->
+<div class="mo" id="vc-preview" style="z-index:9999">
+  <div class="md" style="max-width:280px;text-align:center">
+    <button class="mclose" onclick="cancelRecording()">✕</button>
+    <div class="mt">Запись кружочка</div>
+    <div style="width:200px;height:200px;border-radius:50%;overflow:hidden;margin:12px auto;background:#000;position:relative">
+      <video id="vc-live" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover"></video>
+      <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px">
+        <div class="rec-dot"></div>
+        <span id="vc-timer" style="font-size:12px;color:#fff;font-family:var(--mono);text-shadow:0 1px 3px rgba(0,0,0,.6)">0:00</span>
+      </div>
+    </div>
+    <div class="mact">
+      <button class="mbtn g" onclick="cancelRecording()">Отмена</button>
+      <button class="mbtn p" onclick="stopAndSendRecording()">Отправить</button>
     </div>
   </div>
 </div>
@@ -1512,7 +1562,7 @@ function bubbleHtml(m,isGroup){
   </div>`;
   const isSticker=!!m.sticker&&!m.deleted;
   const isMedia=!!m.media&&!m.deleted;
-  let mbody;
+  let mbody, isVoice=false, isVCircle=false;
   if(isSticker){
     mbody=`<img class="sticker-img" src="${m.sticker}" loading="lazy" onclick="viewSticker('${m.id}')">`;
   } else if(isMedia){
@@ -1520,16 +1570,24 @@ function bubbleHtml(m,isGroup){
     if(med){
       const nm=esc(med.name||'файл');
       const src=med.url||med.data||'';
-      mbody=med.type==='video'
-        ?`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${src}" controls preload="metadata" playsinline></video></div>`
-        :`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${src}" controls preload="metadata"></audio></div>`;
+      if(med.type==='voice'){
+        mbody=`<div class="voice-wrap"><span style="font-size:16px">🎤</span><audio src="${src}" controls preload="metadata"></audio>${med.duration?`<span class="voice-dur">${fmtDur(med.duration)}</span>`:''}</div>`;
+        isVoice=true;
+      } else if(med.type==='videocircle'){
+        mbody=`<div class="vcircle" onclick="toggleVCircle(this)"><video src="${src}" preload="metadata" playsinline loop></video><div class="vc-play">▶</div></div>`;
+        isVCircle=true;
+      } else if(med.type==='video'){
+        mbody=`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${src}" controls preload="metadata" playsinline></video></div>`;
+      } else {
+        mbody=`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${src}" controls preload="metadata"></audio></div>`;
+      }
     } else { mbody=`<div class="mtext">${esc(m.text)||'медиафайл'}</div>`; }
   } else {
     mbody=`<div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>`;
   }
   return `<div class="mr ${sent?'sent':'recv'}" id="m_${m.id}">
     ${actions}
-    <div class="mb${isSticker?' sticker':''}${isMedia?' media-msg':''}">
+    <div class="mb${isSticker?' sticker':''}${isMedia?' media-msg':''}${isVCircle?' vc-msg':''}">
       ${senderRow}
       ${mbody}
       <div class="msg-reactions" id="mr_${m.id}">${reactionBadgesHtml(m.reactions||{},'msg',m.id)}</div>
@@ -3275,6 +3333,102 @@ function submitCreateChannel(){
   if(!name) return alert('Введите название');
   emit('create_channel',{name,description:document.getElementById('cc-desc').value.trim()});
   CM('ccm');
+}
+
+// ════════════════════════════════════
+//  VOICE & VIDEO CIRCLE RECORDING
+// ════════════════════════════════════
+let recMediaRec=null, recChunks=[], recStream=null, recType=null, recStartTs=0, recTimerIv=null;
+
+function fmtDur(s){s=Math.round(s);const m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0');}
+
+function updateRecTimer(){
+  const el=recType==='videocircle'?document.getElementById('vc-timer'):document.getElementById('rec-timer');
+  if(el) el.textContent=fmtDur((Date.now()-recStartTs)/1000);
+}
+
+async function startVoiceRecording(){
+  if(recMediaRec||!openChatId) return;
+  try{
+    recStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){return alert('Нет доступа к микрофону');}
+  recType='voice';
+  recChunks=[];
+  recMediaRec=new MediaRecorder(recStream,{mimeType:MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm'});
+  recMediaRec.ondataavailable=e=>{if(e.data.size>0)recChunks.push(e.data);};
+  recMediaRec.onstop=()=>finalizeRecording();
+  recMediaRec.start();
+  recStartTs=Date.now();
+  recTimerIv=setInterval(updateRecTimer,500);
+  document.getElementById('rec-label').textContent='Голосовое сообщение';
+  document.getElementById('rec-bar').classList.add('on');
+  document.getElementById('input-row').style.display='none';
+}
+
+async function startVideoCircleRecording(){
+  if(recMediaRec||!openChatId) return;
+  try{
+    recStream=await navigator.mediaDevices.getUserMedia({audio:true,video:{facingMode:'user',width:{ideal:480},height:{ideal:480}}});
+  }catch(e){return alert('Нет доступа к камере/микрофону');}
+  recType='videocircle';
+  recChunks=[];
+  const vid=document.getElementById('vc-live');
+  vid.srcObject=recStream;
+  recMediaRec=new MediaRecorder(recStream,{mimeType:MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')?'video/webm;codecs=vp9,opus':'video/webm'});
+  recMediaRec.ondataavailable=e=>{if(e.data.size>0)recChunks.push(e.data);};
+  recMediaRec.onstop=()=>finalizeRecording();
+  recMediaRec.start();
+  recStartTs=Date.now();
+  recTimerIv=setInterval(updateRecTimer,500);
+  OM('vc-preview');
+}
+
+function cancelRecording(){
+  if(recTimerIv){clearInterval(recTimerIv);recTimerIv=null;}
+  if(recMediaRec&&recMediaRec.state!=='inactive'){recMediaRec.onstop=null;recMediaRec.stop();}
+  recMediaRec=null;
+  if(recStream){recStream.getTracks().forEach(t=>t.stop());recStream=null;}
+  recChunks=[];
+  document.getElementById('rec-bar').classList.remove('on');
+  document.getElementById('input-row').style.display='';
+  CM('vc-preview');
+  const vid=document.getElementById('vc-live');
+  vid.srcObject=null;
+  recType=null;
+}
+
+function stopAndSendRecording(){
+  if(!recMediaRec||recMediaRec.state==='inactive') return;
+  recMediaRec.stop();
+}
+
+function finalizeRecording(){
+  if(recTimerIv){clearInterval(recTimerIv);recTimerIv=null;}
+  const dur=(Date.now()-recStartTs)/1000;
+  const blob=new Blob(recChunks,{type:recChunks[0]?.type||'audio/webm'});
+  if(recStream){recStream.getTracks().forEach(t=>t.stop());recStream=null;}
+  document.getElementById('rec-bar').classList.remove('on');
+  document.getElementById('input-row').style.display='';
+  CM('vc-preview');
+  const vid=document.getElementById('vc-live');
+  vid.srcObject=null;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const url=e.target.result;
+    if(recType==='voice'){
+      emit('send_message',{chatId:openChatId,text:'',media:JSON.stringify({type:'voice',name:'Голосовое сообщение',url,duration:Math.round(dur)})});
+    } else {
+      emit('send_message',{chatId:openChatId,text:'',media:JSON.stringify({type:'videocircle',name:'Видеосообщение',url,duration:Math.round(dur)})});
+    }
+    recType=null;recMediaRec=null;recChunks=[];
+  };
+  reader.readAsDataURL(blob);
+}
+
+function toggleVCircle(el){
+  const v=el.querySelector('video');
+  if(v.paused){v.play();el.classList.add('playing');}
+  else{v.pause();el.classList.remove('playing');}
 }
 </script>
 </body>

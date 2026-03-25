@@ -715,6 +715,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <button class="mbtn g" onclick="CM('ecm')">Отмена</button>
       <button class="mbtn p" onclick="saveEditChannel()">Сохранить</button>
     </div>
+    <button class="mbtn" style="margin-top:12px;width:100%;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)" onclick="deleteChannel()">🗑 Удалить канал</button>
   </div>
 </div>
 
@@ -1210,6 +1211,21 @@ function handle({type,payload}){
       if(!S.chanPosts[cp.channelId]) S.chanPosts[cp.channelId]=[];
       S.chanPosts[cp.channelId].push(cp);
       if(openChannelId===cp.channelId) appendChanPost(cp);
+      break;}
+
+    case 'channel_deleted':{
+      delete S.channels[payload.channelId];
+      delete S.chanPosts[payload.channelId];
+      if(openChannelId===payload.channelId){openChannelId=null;document.getElementById('charea').classList.remove('on');document.getElementById('charea').innerHTML='';}
+      renderChannelList();
+      break;}
+
+    case 'post_deleted':{
+      const fi=S.feed.findIndex(p=>p.id===payload.postId);
+      if(fi>=0) S.feed.splice(fi,1);
+      const pel=document.getElementById('post_'+payload.postId);
+      if(pel) pel.remove();
+      if(S.feed.length===0) renderFeed(true);
       break;}
 
     case 'channel_post_deleted':{
@@ -2740,10 +2756,12 @@ function postCardHtml(p){
   const liked=me&&p.likes.includes(me.id);
   const likesText=p.likes.length===0?'':p.likes.length===1?'1 отметка «нравится»':`${p.likes.length} отметок «нравится»`;
   const commText=p.commentCount>0?(p.commentCount===1?'1 комментарий':`${p.commentCount} комментариев`):'Написать комментарий';
+  const isMine=me&&p.userId===me.id;
   return `<div class="post-card" id="post_${p.id}">
     <div class="post-ph">
       <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
+      ${isMine?`<button onclick="deletePost('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;opacity:.5" title="Удалить пост">🗑</button>`:''}
     </div>
     <img class="post-img" src="${p.mediaData}" loading="lazy" onclick="openImageFull('${p.id}')">
     <div class="post-body">
@@ -3241,6 +3259,16 @@ function saveEditChannel(){
     avatarUrl:pendingChanAvatarUrl||''
   });
   CM('ecm');
+}
+function deleteChannel(){
+  if(!editingChannelId) return;
+  if(!confirm('Вы уверены, что хотите удалить этот канал? Это действие необратимо.')) return;
+  emit('delete_channel',{channelId:editingChannelId});
+  CM('ecm');
+}
+function deletePost(postId){
+  if(!confirm('Удалить пост?')) return;
+  emit('delete_post',{postId});
 }
 function submitCreateChannel(){
   const name=document.getElementById('cc-name').value.trim();

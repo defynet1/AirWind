@@ -855,6 +855,28 @@ wss.on('connection', ws => {
       if (avatarUrl !== undefined) await dbRun(`UPDATE channels SET avatar_url=$1 WHERE id=$2`, [avatarUrl||'', channelId]);
       await bcastChannelUpdate(channelId);
 
+    } else if (type === 'delete_channel') {
+      if (!inf) return;
+      const { channelId } = payload;
+      const ch = await dbGet(`SELECT owner_id FROM channels WHERE id=$1`, [channelId]);
+      if (!ch || ch.owner_id !== inf.userId) return;
+      await dbRun(`DELETE FROM channel_post_reactions WHERE post_id IN (SELECT id FROM channel_posts WHERE channel_id=$1)`, [channelId]);
+      await dbRun(`DELETE FROM channel_posts WHERE channel_id=$1`, [channelId]);
+      await dbRun(`DELETE FROM channel_members WHERE channel_id=$1`, [channelId]);
+      await dbRun(`DELETE FROM channels WHERE id=$1`, [channelId]);
+      bcastAll({type:'channel_deleted', payload:{channelId}});
+
+    } else if (type === 'delete_post') {
+      if (!inf) return;
+      const { postId } = payload;
+      const post = await dbGet(`SELECT user_id FROM posts WHERE id=$1`, [postId]);
+      if (!post || post.user_id !== inf.userId) return;
+      await dbRun(`DELETE FROM post_reactions WHERE post_id=$1`, [postId]);
+      await dbRun(`DELETE FROM post_likes WHERE post_id=$1`, [postId]);
+      await dbRun(`DELETE FROM post_comments WHERE post_id=$1`, [postId]);
+      await dbRun(`DELETE FROM posts WHERE id=$1`, [postId]);
+      bcastAll({type:'post_deleted', payload:{postId}});
+
     } else if (type === 'delete_channel_post') {
       if (!inf) return;
       const cpDel = await dbGet(`SELECT channel_id FROM channel_posts WHERE id=$1`, [payload.postId]);

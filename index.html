@@ -263,6 +263,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s}
 .galpage-item:active{cursor:grabbing;box-shadow:0 8px 30px rgba(0,0,0,.7)}
 .galpage-del-btn{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.9);border:none;color:#fff;font-size:12px;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.galpage-resize{position:absolute;bottom:-4px;right:-4px;width:18px;height:18px;background:var(--ac);border-radius:50%;cursor:nwse-resize;z-index:5;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .galpage-item img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
 .galpage-item.framed{border:3px solid var(--ac);box-shadow:0 0 0 1px rgba(99,102,241,.3),0 4px 20px rgba(0,0,0,.5)}
 .galpage-text{position:absolute;color:#fff;font-weight:600;text-shadow:0 2px 8px rgba(0,0,0,.7);cursor:grab;user-select:none;white-space:pre-wrap;padding:4px 8px;border-radius:6px}
@@ -1460,6 +1461,9 @@ function handle({type,payload}){
       break;
     case 'gallery_item_moved':
       if(galPageItems){const it=galPageItems.find(i=>i.id===payload.itemId);if(it){it.x=payload.x;it.y=payload.y;}}
+      break;
+    case 'gallery_item_resized':
+      if(galPageItems){const it=galPageItems.find(i=>i.id===payload.itemId);if(it){if(payload.w!==undefined){it.w=payload.w;it.h=payload.h;}if(payload.fontSize!==undefined)it.fontSize=payload.fontSize;renderGalPageItems();}}
       break;
     case 'gallery_item_deleted':
       if(galPageItems){galPageItems=galPageItems.filter(i=>i.id!==payload.itemId);renderGalPageItems();}
@@ -3671,7 +3675,7 @@ function showGalPage(payload){
   el.innerHTML=`<div class="galpage-hdr">
     <div class="galpage-av" style="${avSt}" onclick="closeGalPage();viewUserProfile('${payload.userId}')">${inner}</div>
     <div class="galpage-info">
-      <div class="galpage-name">${esc(galPageGallery.name)}${verifiedHtml(u)}</div>
+      <div class="galpage-name">${esc(galPageGallery.name)}${verifiedHtml(u)}${isOwner?` <button style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:12px;padding:2px 4px" onclick="galRename()">✏️</button>`:''}</div>
       <div class="galpage-sub">@${esc(u.username||'')}</div>
     </div>
     <button class="galpage-close" onclick="closeGalPage()">✕</button>
@@ -3754,9 +3758,13 @@ function renderGalPageItems(){
       d.textContent=it.data;
       if(isOwner){
         makeDraggable(d,it);
-        const del=document.createElement('button');del.className='galpage-del-btn';del.textContent='✕';
+        const del=document.createElement('button');del.className='galpage-del-btn';del.textContent='✕';del.style.top='-10px';del.style.right='-10px';
         del.onclick=e=>{e.stopPropagation();if(!confirm('Удалить текст?'))return;emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:it.id});};
         d.appendChild(del);
+        // Resize text (font size)
+        const rz=document.createElement('div');rz.className='galpage-resize';
+        makeResizable(rz,d,it,'text');
+        d.appendChild(rz);
       }
       canvas.appendChild(d);
     } else {
@@ -3766,11 +3774,49 @@ function renderGalPageItems(){
       if(it.caption) inner+=`<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;text-align:center">${esc(it.caption)}</div>`;
       if(isOwner) inner+=`<button class="galpage-del-btn" onclick="event.stopPropagation();if(confirm('Удалить фото?'))emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:'${it.id}'})">✕</button>`;
       d.innerHTML=inner;
-      if(isOwner) makeDraggable(d,it);
-      else d.addEventListener('click',()=>openImageFull(it.data));
+      if(isOwner){
+        makeDraggable(d,it);
+        const rz=document.createElement('div');rz.className='galpage-resize';
+        makeResizable(rz,d,it,'image');
+        d.appendChild(rz);
+      } else {
+        d.addEventListener('click',()=>openImageFull(it.data));
+      }
       canvas.appendChild(d);
     }
   });
+}
+
+function makeResizable(handle,el,item,kind){
+  let sx,sy,sw,sh,sf,resizing=false;
+  const onDown=e=>{
+    e.stopPropagation();e.preventDefault();
+    const t=e.touches?e.touches[0]:e;
+    sx=t.clientX;sy=t.clientY;
+    if(kind==='image'){sw=item.w;sh=item.h;}
+    else{sf=item.fontSize||18;}
+    resizing=true;
+  };
+  const onMove=e=>{
+    if(!resizing)return;e.preventDefault();
+    const t=e.touches?e.touches[0]:e;
+    const dx=t.clientX-sx,dy=t.clientY-sy;
+    if(kind==='image'){
+      item.w=Math.max(60,sw+dx);item.h=Math.max(60,sh+dy);
+      el.style.width=item.w+'px';el.style.height=item.h+'px';
+    } else {
+      item.fontSize=Math.max(10,Math.min(120,Math.round(sf+(dx+dy)*0.3)));
+      el.style.fontSize=item.fontSize+'px';
+    }
+  };
+  const onUp=()=>{
+    if(!resizing)return;resizing=false;
+    if(kind==='image') emit('gallery_resize_item',{galleryId:galPageGallery.id,itemId:item.id,w:item.w,h:item.h});
+    else emit('gallery_resize_item',{galleryId:galPageGallery.id,itemId:item.id,fontSize:item.fontSize});
+  };
+  handle.addEventListener('mousedown',onDown);handle.addEventListener('touchstart',onDown,{passive:false});
+  document.addEventListener('mousemove',onMove);document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onUp);document.addEventListener('touchend',onUp);
 }
 
 function makeDraggable(el,item){
@@ -3873,6 +3919,15 @@ function initGalDraw(c){
 function galSetDrawClr(clr,el){galDrawColor=clr;galDrawEraser=false;document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));el.classList.add('on');const eb=document.getElementById('gp-eraser-btn');if(eb)eb.classList.remove('active');}
 function galToggleEraser(){galDrawEraser=!galDrawEraser;const eb=document.getElementById('gp-eraser-btn');if(eb)eb.classList.toggle('active',galDrawEraser);document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));}
 function galDeleteGallery(){if(!galPageGallery)return;if(!confirm('Удалить эту галерею? Все фото и элементы будут потеряны.'))return;emit('gallery_delete',{galleryId:galPageGallery.id});}
+function galRename(){
+  if(!galPageGallery)return;
+  const name=prompt('Новое название:',galPageGallery.name);
+  if(!name||name===galPageGallery.name)return;
+  emit('gallery_update',{galleryId:galPageGallery.id,name});
+  galPageGallery.name=name;
+  const el=document.querySelector('.galpage-name');
+  if(el){const u=S.users[galPageUserId]||{};el.innerHTML=esc(name)+verifiedHtml(u)+` <button style="background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:12px;padding:2px 4px" onclick="galRename()">✏️</button>`;}
+}
 
 async function galSaveDraw(){
   const c=document.getElementById('gp-draw-canvas');

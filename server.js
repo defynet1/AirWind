@@ -1232,6 +1232,15 @@ wss.on('connection', ws => {
       await dbRun(`UPDATE gallery_items SET x=$1, y=$2 WHERE id=$3`, [x, y, itemId]);
       send(ws, {type:'gallery_item_moved', payload:{itemId, x, y}});
 
+    } else if (type === 'gallery_resize_item') {
+      if (!inf) return;
+      const { galleryId, itemId, w, h, fontSize } = payload;
+      const gal = await dbGet(`SELECT id FROM galleries WHERE id=$1 AND user_id=$2`, [galleryId, inf.userId]);
+      if (!gal) return;
+      if (w!==undefined&&h!==undefined) await dbRun(`UPDATE gallery_items SET w=$1, h=$2 WHERE id=$3 AND gallery_id=$4`, [w, h, itemId, gal.id]);
+      if (fontSize!==undefined) await dbRun(`UPDATE gallery_items SET font_size=$1 WHERE id=$2 AND gallery_id=$3`, [fontSize, itemId, gal.id]);
+      send(ws, {type:'gallery_item_resized', payload:{itemId, w, h, fontSize}});
+
     } else if (type === 'gallery_delete_item') {
       if (!inf) return;
       const { galleryId, itemId } = payload;

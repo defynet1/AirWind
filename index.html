@@ -270,6 +270,17 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-toolbar .gt-btn{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:13px;padding:8px 14px;border-radius:12px;cursor:pointer;transition:.15s;white-space:nowrap}
 .galpage-toolbar .gt-btn:hover{background:rgba(255,255,255,.2)}
 .galpage-toolbar .gt-btn.active{background:var(--ac)}
+/* Gallery effects canvas */
+.galpage-fx{position:absolute;inset:0;pointer-events:none;z-index:3}
+/* Effects shop modal */
+.gal-fx-shop{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.gal-fx-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:360px;width:90%;max-height:70vh;overflow-y:auto;background:var(--sf);border-radius:18px;padding:20px;border:1px solid rgba(255,255,255,.08)}
+.gal-fx-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px;text-align:center;cursor:pointer;transition:.15s}
+.gal-fx-item:hover{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.25)}
+.gal-fx-item.active{border-color:var(--ac);background:rgba(99,102,241,.12)}
+.gal-fx-ico{font-size:28px;margin-bottom:6px}
+.gal-fx-name{font-size:13px;font-weight:600;color:var(--tx)}
+.gal-fx-cost{font-size:11px;color:var(--tx3);margin-top:2px}
 .galpage-draw-tools{display:flex;gap:4px;align-items:center}
 .galpage-draw-tools .gd-clr{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer}
 .galpage-draw-tools .gd-clr.on{border-color:#fff;transform:scale(1.15)}
@@ -1386,7 +1397,12 @@ function handle({type,payload}){
       loadGalleries();
       break;
     case 'gallery_updated':
-      if(galPageGallery&&galPageGallery.id===payload.gallery.id) galPageGallery=payload.gallery;
+      if(galPageGallery&&galPageGallery.id===payload.gallery.id){galPageGallery=payload.gallery;startGalEffect();}
+      break;
+    case 'gallery_effect_ok':
+      if(galPageGallery&&galPageGallery.id===payload.galleryId){galPageGallery.effect=payload.effectId;startGalEffect();}
+      alert(payload.effectId?'Эффект применён!':'Эффект снят');
+      loadGalleries();
       break;
     case 'gallery_item_added':
       if(galPageItems) {galPageItems.push(payload.item);renderGalPageItems();}
@@ -3584,6 +3600,7 @@ function showGalPage(payload){
     <div class="galpage-field" id="gp-field" style="${bgStyle}">
       ${galPageGallery.drawData?`<img src="${galPageGallery.drawData}" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1">`:''}
       <canvas id="gp-draw-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+      <canvas class="galpage-fx" id="gp-fx-canvas"></canvas>
     </div>
   </div>
   ${isOwner?`<div class="galpage-toolbar" id="gp-toolbar">
@@ -3591,6 +3608,7 @@ function showGalPage(payload){
     <button class="gt-btn" onclick="galAddText()">✏️ Текст</button>
     <button class="gt-btn" id="gp-draw-btn" onclick="galToggleDraw()">🎨 Рисовать</button>
     <button class="gt-btn" onclick="document.getElementById('gal-bg-input').click()">🖼 Фон</button>
+    <button class="gt-btn" onclick="openGalFxShop()">✨ Эффекты</button>
     <button class="gt-btn" style="margin-left:auto;background:rgba(239,68,68,.15);color:#ef4444" onclick="galDeleteGallery()">🗑️</button>
     <div class="galpage-draw-tools" id="gp-draw-tools" style="display:none">
       <div class="gd-clr on" style="background:#fff" onclick="galSetDrawClr('#ffffff',this)"></div>
@@ -3612,6 +3630,7 @@ function showGalPage(payload){
   galZoom=1;
   initPinchZoom();
   renderGalPageItems();
+  startGalEffect();
 }
 
 function initPinchZoom(){
@@ -3714,6 +3733,7 @@ function makeDraggable(el,item){
 
 function closeGalPage(){
   galPageUserId=null;galPageGallery=null;galPageItems=null;galDrawMode=false;
+  if(galFxAnim){cancelAnimationFrame(galFxAnim);galFxAnim=null;}
   const el=document.getElementById('galpage');if(el)el.remove();
 }
 
@@ -3788,6 +3808,123 @@ function galClearDraw(){
   const c=document.getElementById('gp-draw-canvas');
   c.getContext('2d').clearRect(0,0,c.width,c.height);
   emit('gallery_update',{galleryId:galPageGallery.id,drawData:''});
+}
+
+// ── Gallery Effects ──
+const GAL_FX=[
+  {id:'snow',    name:'Снег',      ico:'❄️', cost:100},
+  {id:'rain',    name:'Дождь',     ico:'🌧️', cost:100},
+  {id:'stars',   name:'Звёзды',    ico:'⭐', cost:150},
+  {id:'fireflies',name:'Светлячки',ico:'✨', cost:150},
+  {id:'bubbles', name:'Пузыри',    ico:'🫧', cost:200},
+  {id:'confetti',name:'Конфетти',  ico:'🎉', cost:200},
+  {id:'matrix',  name:'Матрица',   ico:'💚', cost:250},
+  {id:'aurora',  name:'Сияние',    ico:'🌌', cost:300},
+];
+let galFxAnim=null;
+
+function openGalFxShop(){
+  if(!galPageGallery)return;
+  const cur=galPageGallery.effect||'';
+  const coins=me?.coins||0;
+  const el=document.createElement('div');el.className='gal-fx-shop';el.id='gal-fx-shop';
+  el.onclick=e=>{if(e.target===el)el.remove();};
+  let html=`<div class="gal-fx-list">
+    <div style="grid-column:1/-1;text-align:center;margin-bottom:4px">
+      <div style="font-size:16px;font-weight:600;color:var(--tx)">✨ Эффекты галереи</div>
+      <div style="font-size:12px;color:var(--tx3);margin-top:4px">У вас: ${coins} 🪙</div>
+    </div>
+    <div class="gal-fx-item ${!cur?'active':''}" onclick="buyGalFx('')">
+      <div class="gal-fx-ico">🚫</div>
+      <div class="gal-fx-name">Без эффекта</div>
+      <div class="gal-fx-cost">Бесплатно</div>
+    </div>`;
+  GAL_FX.forEach(fx=>{
+    html+=`<div class="gal-fx-item ${cur===fx.id?'active':''}" onclick="buyGalFx('${fx.id}')">
+      <div class="gal-fx-ico">${fx.ico}</div>
+      <div class="gal-fx-name">${fx.name}</div>
+      <div class="gal-fx-cost">${cur===fx.id?'Активен':fx.cost+' 🪙'}</div>
+    </div>`;
+  });
+  html+=`</div>`;
+  el.innerHTML=html;
+  document.body.appendChild(el);
+}
+
+function buyGalFx(effectId){
+  if(!galPageGallery)return;
+  const fx=GAL_FX.find(f=>f.id===effectId);
+  if(effectId&&fx){
+    if((me?.coins||0)<fx.cost)return alert('Недостаточно монет');
+    if(!confirm(`Купить эффект «${fx.name}» за ${fx.cost} монет?`))return;
+  }
+  emit('gallery_buy_effect',{galleryId:galPageGallery.id,effectId});
+  const shop=document.getElementById('gal-fx-shop');if(shop)shop.remove();
+}
+
+function startGalEffect(){
+  if(galFxAnim){cancelAnimationFrame(galFxAnim);galFxAnim=null;}
+  const c=document.getElementById('gp-fx-canvas');
+  if(!c)return;
+  const effect=galPageGallery?.effect||'';
+  if(!effect){c.style.display='none';return;}
+  const field=document.getElementById('gp-field');
+  c.width=field?.offsetWidth||2000;c.height=field?.offsetHeight||2000;
+  c.style.display='';
+  const ctx=c.getContext('2d');
+  const W=c.width,H=c.height;
+  let particles=[];
+
+  if(effect==='snow'){
+    for(let i=0;i<120;i++)particles.push({x:Math.random()*W,y:Math.random()*H,r:1+Math.random()*3,s:0.3+Math.random()*1,w:Math.random()*2-1});
+  } else if(effect==='rain'){
+    for(let i=0;i<200;i++)particles.push({x:Math.random()*W,y:Math.random()*H,l:8+Math.random()*15,s:4+Math.random()*6});
+  } else if(effect==='stars'){
+    for(let i=0;i<80;i++)particles.push({x:Math.random()*W,y:Math.random()*H,r:1+Math.random()*2,a:Math.random()*Math.PI*2,s:0.02+Math.random()*0.03});
+  } else if(effect==='fireflies'){
+    for(let i=0;i<40;i++)particles.push({x:Math.random()*W,y:Math.random()*H,vx:Math.random()*0.5-0.25,vy:Math.random()*0.5-0.25,r:2+Math.random()*3,a:Math.random()*Math.PI*2});
+  } else if(effect==='bubbles'){
+    for(let i=0;i<50;i++)particles.push({x:Math.random()*W,y:H+Math.random()*200,r:4+Math.random()*12,s:0.3+Math.random()*0.7,w:Math.random()*1-0.5});
+  } else if(effect==='confetti'){
+    for(let i=0;i<100;i++)particles.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*Math.PI*2,s:0.5+Math.random()*1.5,c:`hsl(${Math.random()*360},80%,60%)`,w:3+Math.random()*4,h:2+Math.random()*3});
+  } else if(effect==='matrix'){
+    const cols=Math.floor(W/14);
+    for(let i=0;i<cols;i++)particles.push({x:i*14,y:Math.random()*H*-1,s:2+Math.random()*5,chars:[]});
+  } else if(effect==='aurora'){
+    for(let i=0;i<5;i++)particles.push({y:100+i*80,a:Math.random()*Math.PI*2,s:0.005+Math.random()*0.005});
+  }
+
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    if(effect==='snow'){
+      ctx.fillStyle='#fff';
+      particles.forEach(p=>{ctx.globalAlpha=0.7;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();p.y+=p.s;p.x+=p.w;if(p.y>H){p.y=0;p.x=Math.random()*W;}if(p.x>W)p.x=0;if(p.x<0)p.x=W;});
+      ctx.globalAlpha=1;
+    } else if(effect==='rain'){
+      ctx.strokeStyle='rgba(174,194,224,0.4)';ctx.lineWidth=1;
+      particles.forEach(p=>{ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+1,p.y+p.l);ctx.stroke();p.y+=p.s;if(p.y>H){p.y=-p.l;p.x=Math.random()*W;}});
+    } else if(effect==='stars'){
+      particles.forEach(p=>{p.a+=p.s;ctx.globalAlpha=0.4+0.6*Math.abs(Math.sin(p.a));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
+      ctx.globalAlpha=1;
+    } else if(effect==='fireflies'){
+      particles.forEach(p=>{p.a+=0.03;p.x+=p.vx+Math.sin(p.a)*0.3;p.y+=p.vy+Math.cos(p.a)*0.3;ctx.globalAlpha=0.4+0.6*Math.abs(Math.sin(p.a*2));ctx.fillStyle='#fde047';ctx.shadowColor='#fde047';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;});
+      ctx.shadowBlur=0;ctx.globalAlpha=1;
+    } else if(effect==='bubbles'){
+      particles.forEach(p=>{ctx.globalAlpha=0.25;ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.stroke();p.y-=p.s;p.x+=p.w;if(p.y<-20){p.y=H+20;p.x=Math.random()*W;}});
+      ctx.globalAlpha=1;
+    } else if(effect==='confetti'){
+      particles.forEach(p=>{p.r+=0.05;p.y+=p.s;p.x+=Math.sin(p.r)*0.5;ctx.fillStyle=p.c;ctx.globalAlpha=0.8;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();if(p.y>H){p.y=0;p.x=Math.random()*W;}});
+      ctx.globalAlpha=1;
+    } else if(effect==='matrix'){
+      ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#0f0';ctx.font='12px monospace';
+      particles.forEach(p=>{const ch=String.fromCharCode(0x30A0+Math.random()*96);ctx.fillText(ch,p.x,p.y);p.y+=p.s;if(p.y>H&&Math.random()>0.975)p.y=0;});
+    } else if(effect==='aurora'){
+      particles.forEach((p,i)=>{p.a+=p.s;const grad=ctx.createLinearGradient(0,p.y,W,p.y);grad.addColorStop(0,`hsla(${120+i*40+Math.sin(p.a)*30},70%,50%,0)`);grad.addColorStop(0.3,`hsla(${120+i*40+Math.sin(p.a)*30},70%,50%,0.08)`);grad.addColorStop(0.5,`hsla(${160+i*30+Math.cos(p.a)*20},70%,60%,0.12)`);grad.addColorStop(0.7,`hsla(${120+i*40+Math.sin(p.a)*30},70%,50%,0.08)`);grad.addColorStop(1,`hsla(${120+i*40+Math.sin(p.a)*30},70%,50%,0)`);ctx.fillStyle=grad;ctx.fillRect(0,p.y-40+Math.sin(p.a)*20,W,80);});
+    }
+    galFxAnim=requestAnimationFrame(draw);
+  }
+  galFxAnim=requestAnimationFrame(draw);
 }
 
 </script>

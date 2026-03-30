@@ -132,6 +132,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS name TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS bg TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS draw_data TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS effect TEXT DEFAULT ''`);
   await pool.query(`CREATE TABLE IF NOT EXISTS gallery_items (
     id TEXT PRIMARY KEY, gallery_id TEXT NOT NULL,
     kind TEXT DEFAULT 'post', data TEXT DEFAULT '',
@@ -1172,8 +1173,32 @@ wss.on('connection', ws => {
       if (bg!==undefined) await dbRun(`UPDATE galleries SET bg=$1 WHERE id=$2`, [bg, gal.id]);
       if (drawData!==undefined) await dbRun(`UPDATE galleries SET draw_data=$1 WHERE id=$2`, [drawData, gal.id]);
       const updated = await dbGet(`SELECT * FROM galleries WHERE id=$1`, [gal.id]);
-      send(ws, {type:'gallery_updated', payload:{gallery:{id:gal.id, userId:inf.userId, name:updated.name, bg:updated.bg, drawData:updated.draw_data||''}}});
+      send(ws, {type:'gallery_updated', payload:{gallery:{id:gal.id, userId:inf.userId, name:updated.name, bg:updated.bg, drawData:updated.draw_data||'', effect:updated.effect||''}}});
       bcastAll({type:'galleries_updated', payload:{}});
+
+    } else if (type === 'gallery_buy_effect') {
+      if (!inf) return;
+      const { galleryId, effectId } = payload;
+      const GAL_EFFECTS = {snow:100,rain:100,stars:150,fireflies:150,bubbles:200,matrix:250,confetti:200,aurora:300};
+      const cost = GAL_EFFECTS[effectId];
+      if (!cost && effectId!=='') return send(ws,{type:'error',payload:{msg:'Неизвестный эффект'}});
+      const gal = await dbGet(`SELECT * FROM galleries WHERE id=$1 AND user_id=$2`, [galleryId, inf.userId]);
+      if (!gal) return;
+      if (effectId==='') {
+        // Снять эффект бесплатно
+        await dbRun(`UPDATE galleries SET effect='' WHERE id=$1`, [gal.id]);
+        send(ws,{type:'gallery_effect_ok',payload:{galleryId,effectId:''}});
+        bcastAll({type:'galleries_updated',payload:{}});
+        return;
+      }
+      const u = await getUserById(inf.userId);
+      if (Number(u.coins||0) < cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
+      await dbRun(`UPDATE users SET coins=coins-$1 WHERE id=$2`, [cost, inf.userId]);
+      await dbRun(`UPDATE galleries SET effect=$1 WHERE id=$2`, [effectId, gal.id]);
+      const updU = await getUserById(inf.userId);
+      send(ws,{type:'profile_updated',payload:{user:safe(updU)}});
+      send(ws,{type:'gallery_effect_ok',payload:{galleryId,effectId}});
+      bcastAll({type:'galleries_updated',payload:{}});
 
     } else if (type === 'gallery_add_item') {
       if (!inf) return;
@@ -1209,7 +1234,7 @@ wss.on('connection', ws => {
       const gal = await dbGet(`SELECT * FROM galleries WHERE id=$1`, [galleryId]);
       if (!gal) return send(ws, {type:'gallery_data', payload:{galleryId, gallery:null, items:[]}});
       const items = await dbAll(`SELECT * FROM gallery_items WHERE gallery_id=$1 ORDER BY ts`, [gal.id]);
-      send(ws, {type:'gallery_data', payload:{galleryId, gallery:{id:gal.id, userId:gal.user_id, name:gal.name, bg:gal.bg, drawData:gal.draw_data||''},
+      send(ws, {type:'gallery_data', payload:{galleryId, gallery:{id:gal.id, userId:gal.user_id, name:gal.name, bg:gal.bg, drawData:gal.draw_data||'', effect:gal.effect||''},
         items: items.map(i=>({id:i.id, kind:i.kind, data:i.data, caption:i.caption||'', x:Number(i.x), y:Number(i.y), w:Number(i.w), h:Number(i.h), frame:i.frame||'', fontSize:Number(i.font_size||18), color:i.color||'#ffffff', ts:Number(i.ts)}))}});
 
     } else if (type === 'galleries_list') {

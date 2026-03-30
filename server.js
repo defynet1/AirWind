@@ -1106,6 +1106,31 @@ wss.on('connection', ws => {
       const all = await getAllUsers();
       send(ws,{type:'admin_users',payload:{users:all.map(safe)}});
 
+    } else if (type === 'admin_clear_chat') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const { chatId } = payload;
+      if (!chatId) return;
+      await dbRun(`DELETE FROM messages WHERE chat_id=$1`, [chatId]);
+      flush();
+      // Уведомляем всех участников чата
+      const members = await getChatMembers(chatId);
+      clients.forEach((ci, cw) => {
+        if (chatId === '__global__' || members.includes(ci.userId)) {
+          send(cw, {type:'chat_cleared', payload:{chatId}});
+        }
+      });
+      send(ws,{type:'admin_ok',payload:{msg:'История чата очищена'}});
+
+    } else if (type === 'admin_get_chats') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const chats = db.exec(`SELECT c.id, c.name, c.is_group, (SELECT COUNT(*) FROM messages WHERE chat_id=c.id) as msg_count FROM chats c ORDER BY c.name`);
+      const rows = chats[0] ? chats[0].values.map(r => ({id:r[0], name:r[1], isGroup:!!r[2], msgCount:r[3]})) : [];
+      send(ws,{type:'admin_chats',payload:{chats:rows}});
+
     } else if (type === 'send_gift') {
       if (!inf) return;
       const { toUserId, giftId } = payload;

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AirWind</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -15,10 +15,10 @@
   --red:#f87171;--green:#34d399;--yellow:#fbbf24;
   --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
 }
-body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0)}
 
 /* ── AUTH ── */
-#auth{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg);background-image:radial-gradient(ellipse 75% 60% at 15% 20%,rgba(99,102,241,.2),transparent 60%),radial-gradient(ellipse 55% 45% at 85% 75%,rgba(139,92,246,.16),transparent 60%),radial-gradient(ellipse 45% 35% at 55% 55%,rgba(59,130,246,.08),transparent 65%)}
+#auth{display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;background:var(--bg);background-image:radial-gradient(ellipse 75% 60% at 15% 20%,rgba(99,102,241,.2),transparent 60%),radial-gradient(ellipse 55% 45% at 85% 75%,rgba(139,92,246,.16),transparent 60%),radial-gradient(ellipse 45% 35% at 55% 55%,rgba(59,130,246,.08),transparent 65%)}
 .abox{width:390px;background:rgba(15,17,22,.82);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:40px;box-shadow:0 60px 120px rgba(0,0,0,.75),0 0 0 1px rgba(99,102,241,.1),inset 0 1px 0 rgba(255,255,255,.05)}
 .alogo{display:flex;align-items:center;gap:10px;margin-bottom:32px}
 .alogo-ico{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,var(--ac),var(--ac2));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 8px 24px var(--ac-glow),inset 0 1px 0 rgba(255,255,255,.15)}
@@ -39,7 +39,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .conn.ok{color:var(--green)} .conn.err{color:var(--red)}
 
 /* ── APP ── */
-#app{display:none;height:100vh}
+#app{display:none;height:100vh;height:100dvh}
 #app.on{display:flex}
 #sidebar{width:300px;min-width:300px;background:var(--sf);border-right:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column}
 .sh{padding:14px 14px 10px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:8px}
@@ -496,7 +496,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
   #app.on{position:relative;overflow:hidden}
-  #sidebar{width:100%;min-width:100%;height:100vh;position:absolute;inset:0;z-index:10}
+  #sidebar{width:100%;min-width:100%;height:100vh;height:100dvh;position:absolute;inset:0;z-index:10}
   #sidebar.mob-hidden{display:none}
   #carea{position:absolute;inset:0;z-index:11;display:none;flex-direction:column}
   #carea.mob-open{display:flex}
@@ -526,7 +526,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   .adm-list{max-height:55vh}
   .chname{font-size:14px}
   .minput{font-size:14px;padding:9px 12px}
-  #channels-panel{height:calc(100vh - 120px)}
+  #channels-panel{height:calc(100vh - 120px);height:calc(100dvh - 120px)}
   .ch-ibar{margin-bottom:0}
   #ch-posts{padding-bottom:10px}
   .noc-ch{padding-bottom:70px}

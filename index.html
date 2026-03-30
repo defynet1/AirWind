@@ -251,6 +251,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .gal-bar{width:100%;max-width:560px;display:flex;gap:12px;padding:10px 0;overflow-x:auto;scrollbar-width:none}
 .gal-bar::-webkit-scrollbar{display:none}
 .gal-bubble{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;width:68px}
+.gal-bubble.sticky{position:sticky;left:0;z-index:2;background:var(--bg);padding-right:4px}
 .gal-bubble-ring{width:60px;height:60px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--ac),var(--ac2))}
 .gal-bubble-ring.my{background:rgba(255,255,255,.12);border:2px dashed rgba(255,255,255,.2)}
 .gal-bubble-ring.my .gal-bubble-av{font-size:24px;color:var(--ac)}
@@ -3433,12 +3434,12 @@ function renderGalBar(){
   let html='';
   // Кнопка создать/добавить
   if(!hasOwn){
-    html+=`<div class="gal-bubble" onclick="galCreate()">
+    html+=`<div class="gal-bubble sticky" onclick="galCreate()">
       <div class="gal-bubble-ring my"><div class="gal-bubble-av">+</div></div>
       <div class="gal-bubble-name">Создать</div>
     </div>`;
   } else {
-    html+=`<div class="gal-bubble" onclick="document.getElementById('gal-upload-input').click()">
+    html+=`<div class="gal-bubble sticky" onclick="document.getElementById('gal-upload-input').click()">
       <div class="gal-bubble-ring my"><div class="gal-bubble-av">+</div></div>
       <div class="gal-bubble-name">Добавить</div>
     </div>`;

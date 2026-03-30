@@ -97,6 +97,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .mr.recv .mb{background:var(--recv);color:var(--tx);border:1px solid rgba(255,255,255,.07);border-radius:18px 18px 18px 4px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .msender{font-size:11px;font-weight:600;color:var(--ac);margin-bottom:2px}
 .mtext{font-size:14px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.mtext a{color:#818cf8;text-decoration:underline;text-underline-offset:2px;word-break:break-all}
+.mtext a:hover{color:#a5b4fc}
 .mtext.deleted{color:var(--tx3);font-style:italic}
 .mfooter{display:flex;align-items:center;gap:4px;margin-top:3px;justify-content:flex-end}
 .mtime{font-size:10px;color:var(--tx3);font-family:var(--mono)}
@@ -1528,9 +1530,9 @@ function bubbleHtml(m,isGroup){
       } else {
         mbody=`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${src}" controls preload="metadata"></audio></div>`;
       }
-    } else { mbody=`<div class="mtext">${esc(m.text)||'медиафайл'}</div>`; }
+    } else { mbody=`<div class="mtext">${linkify(esc(m.text))||'медиафайл'}</div>`; }
   } else {
-    mbody=`<div class="mtext${m.deleted?' deleted':''}">${esc(m.text)}</div>`;
+    mbody=`<div class="mtext${m.deleted?' deleted':''}">${linkify(esc(m.text))}</div>`;
   }
   return `<div class="mr ${sent?'sent':'recv'}" id="m_${m.id}">
     ${actions}
@@ -2409,6 +2411,7 @@ function initials(n){if(!n)return'?';const p=n.trim().split(/\s+/);return p.leng
 function ft(ts){const d=new Date(ts),now=new Date(),pad=n=>String(n).padStart(2,'0');if(d.toDateString()===now.toDateString())return pad(d.getHours())+':'+pad(d.getMinutes());if(d.getFullYear()===now.getFullYear())return pad(d.getDate())+'.'+pad(d.getMonth()+1);return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();}
 function fdh(ts){const d=new Date(ts),now=new Date(),yes=new Date(Date.now()-864e5);if(d.toDateString()===now.toDateString())return'Сегодня';if(d.toDateString()===yes.toDateString())return'Вчера';const m=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];return d.getDate()+' '+m[d.getMonth()]+(d.getFullYear()!==now.getFullYear()?' '+d.getFullYear():'');}
 function esc(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function linkify(s){return s.replace(/(https?:\/\/[^\s<"']+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');}
 function v(id){return(document.getElementById(id)||{}).value||'';}
 function openFrameShop(){
   document.getElementById('fs-coins').textContent=me?.coins||0;
@@ -2777,7 +2780,7 @@ function postCardHtml(p){
       </div>
       <div class="post-reactions" id="pr_${p.id}">${reactionBadgesHtml(p.reactions||{},'post',p.id)}</div>
       ${likesText?`<div class="post-likes" id="likes_${p.id}">${esc(likesText)}</div>`:`<div class="post-likes" id="likes_${p.id}" style="display:none"></div>`}
-      ${p.caption?`<div class="post-cap"><strong>${esc(u.displayName||'')}</strong> ${esc(p.caption)}</div>`:''}
+      ${p.caption?`<div class="post-cap"><strong>${esc(u.displayName||'')}</strong> ${linkify(esc(p.caption))}</div>`:''}
       <div class="post-clink" id="ccount_${p.id}" onclick="openComments('${p.id}')">${commText}</div>
       <div class="post-ts">${fts(p.ts)}</div>
     </div>
@@ -2851,7 +2854,7 @@ function renderComments(postId){
       <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div class="cmtext">
         <div class="cmname" style="display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div>
-        <div class="cmbody">${esc(c.text)}</div>
+        <div class="cmbody">${linkify(esc(c.text))}</div>
         <div class="cmts">${fts(c.ts)}</div>
       </div>
     </div>`;
@@ -2869,7 +2872,7 @@ function appendComment(c){
     <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:32px;height:32px;font-size:12px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
     <div class="cmtext">
       <div class="cmname">${esc(u.displayName||'?')}</div>
-      <div class="cmbody">${esc(c.text)}</div>
+      <div class="cmbody">${linkify(esc(c.text))}</div>
       <div class="cmts">${fts(c.ts)}</div>
     </div>
   </div>`);
@@ -3129,7 +3132,7 @@ function chanPostHtml(p){
   const react=`<button class="cpa" onclick="showReactionPicker(this,'${p.id}','chanpost')">😊</button>`;
   return `<div class="cp" id="cp_${p.id}">
     <div class="cp-bubble">
-      ${p.text?`<div class="cp-text">${esc(p.text)}</div>`:''}
+      ${p.text?`<div class="cp-text">${linkify(esc(p.text))}</div>`:''}
       ${mediaHtml}
       <div class="cp-footer">
         ${p.edited?`<span class="cp-edit">изм.</span>`:''}

@@ -243,6 +243,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .stab.on{background:rgba(99,102,241,.2);color:var(--ac);box-shadow:0 0 12px rgba(99,102,241,.25)}
 
 /* ── FEED AREA ── */
+#feed-sidebar{display:flex;flex-direction:column;flex:1;overflow:hidden}
 #farea{flex:1;display:none;overflow-y:auto;background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(91,140,255,.04),transparent 60%)}
 #farea.on{display:flex;flex-direction:column;align-items:center}
 #farea::-webkit-scrollbar{width:3px}
@@ -580,7 +581,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       </div>
       <div id="clist"></div>
     </div>
-    <div id="feed-sidebar" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <div id="feed-sidebar" class="hidden">
       <div style="padding:9px 13px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:12px;color:var(--tx3);font-weight:500;text-transform:uppercase;letter-spacing:.4px">Галереи</span>
         <button class="ibtn" title="Создать галерею" onclick="openGalCreate()" style="font-size:16px;width:28px;height:28px">＋</button>
@@ -2894,7 +2895,10 @@ function switchSideTab(tab){
       document.getElementById('feed-sidebar').classList.add('hidden');
       document.getElementById('channels-panel').classList.add('hidden');
     } else if(tab==='feed'){
-      document.getElementById('sidebar').classList.add('mob-hidden');
+      document.getElementById('sidebar').classList.remove('mob-hidden');
+      document.getElementById('chats-panel').classList.add('hidden');
+      document.getElementById('feed-sidebar').classList.remove('hidden');
+      document.getElementById('channels-panel').classList.add('hidden');
       document.getElementById('farea').classList.add('on');
     } else if(tab==='channels'){
       document.getElementById('sidebar').classList.remove('mob-hidden');

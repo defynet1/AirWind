@@ -658,14 +658,6 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
           <button class="edit-strip-close" onclick="clearEdit()">✕</button>
         </div>
         <div class="emoji-panel hidden" id="emoji-panel"></div>
-        <div class="sp-panel hidden" id="sp-panel">
-          <div class="sp-tabs" id="sp-tabs"></div>
-          <div class="sp-body" id="sp-body"></div>
-          <div class="sp-actions">
-            <button class="sp-add-btn" onclick="openCreatePack()">＋ Создать набор</button>
-            <button class="sp-cat-btn" onclick="openStickerCatalog()">📦 Каталог</button>
-          </div>
-        </div>
         <div class="attach-strip" id="attach-strip" style="display:none">
           <img id="attach-preview" style="width:48px;height:48px;border-radius:8px;object-fit:cover">
           <span style="flex:1;font-size:12px;color:var(--tx2)" id="attach-name">Фото</span>
@@ -673,8 +665,6 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
         </div>
         <div class="irow" id="input-row">
           <button class="stbtn" title="Эмодзи" onclick="toggleEmojiPanel()">😊</button>
-          <button class="stbtn" title="Стикеры" onclick="toggleStickerPanel()">🎭</button>
-          <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="addStickerFile(this)">
           <button class="stbtn" title="Фото" onclick="document.getElementById('photofile').click()">🖼</button>
           <input type="file" id="photofile" accept="image/*" style="display:none" onchange="attachPhoto(this)">
           <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>

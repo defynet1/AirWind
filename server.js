@@ -155,6 +155,18 @@ async function initDB() {
     PRIMARY KEY (user_id, pack_id)
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS polls (
+    id TEXT PRIMARY KEY, creator_id TEXT NOT NULL,
+    question TEXT NOT NULL, options TEXT NOT NULL,
+    context TEXT DEFAULT 'feed', context_id TEXT DEFAULT '',
+    multiple INTEGER DEFAULT 0, anonymous INTEGER DEFAULT 0,
+    ts BIGINT NOT NULL
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS poll_votes (
+    poll_id TEXT NOT NULL, user_id TEXT NOT NULL, option_idx INTEGER NOT NULL,
+    PRIMARY KEY (poll_id, user_id, option_idx)
+  )`);
+
   // Indexes for performance (non-fatal if they fail)
   try {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_chat_ts ON messages(chat_id, ts DESC)`);
@@ -1250,6 +1262,70 @@ wss.on('connection', ws => {
       await dbRun(`DELETE FROM galleries WHERE id=$1`, [gal.id]);
       send(ws, {type:'gallery_deleted', payload:{galleryId}});
       bcastAll({type:'galleries_updated', payload:{}});
+
+    // ── POLLS ──
+    } else if (type === 'create_poll') {
+      if (!inf) return;
+      const { question, options, context, contextId, multiple, anonymous } = payload;
+      if (!question || !options || options.length < 2) return;
+      const id = newId(), ts = Date.now();
+      await dbRun(`INSERT INTO polls(id,creator_id,question,options,context,context_id,multiple,anonymous,ts) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [id, inf.userId, question, JSON.stringify(options), context||'feed', contextId||'', multiple?1:0, anonymous?1:0, ts]);
+      const poll = {id, creatorId:inf.userId, question, options, context:context||'feed', contextId:contextId||'', multiple:!!multiple, anonymous:!!anonymous, ts, votes:{}};
+      // Рассылка в зависимости от контекста
+      if (context==='chat'||context==='group') {
+        await bcastChat(contextId, {type:'new_poll', payload:{poll}});
+      } else if (context==='channel') {
+        const members = await dbAll(`SELECT user_id FROM channel_members WHERE channel_id=$1`, [contextId]);
+        const mids = members.map(m=>m.user_id);
+        clients.forEach((ci,cw)=>{if(mids.includes(ci.userId))send(cw,{type:'new_poll',payload:{poll}});});
+      } else {
+        bcastAll({type:'new_poll', payload:{poll}});
+      }
+
+    } else if (type === 'vote_poll') {
+      if (!inf) return;
+      const { pollId, optionIdx } = payload;
+      const poll = await dbGet(`SELECT * FROM polls WHERE id=$1`, [pollId]);
+      if (!poll) return;
+      if (!poll.multiple) {
+        // Убрать предыдущий голос
+        await dbRun(`DELETE FROM poll_votes WHERE poll_id=$1 AND user_id=$2`, [pollId, inf.userId]);
+      }
+      // Проверить, не голосовал ли уже за этот вариант
+      const existing = await dbGet(`SELECT * FROM poll_votes WHERE poll_id=$1 AND user_id=$2 AND option_idx=$3`, [pollId, inf.userId, optionIdx]);
+      if (existing) {
+        await dbRun(`DELETE FROM poll_votes WHERE poll_id=$1 AND user_id=$2 AND option_idx=$3`, [pollId, inf.userId, optionIdx]);
+      } else {
+        await dbRun(`INSERT INTO poll_votes(poll_id,user_id,option_idx) VALUES($1,$2,$3)`, [pollId, inf.userId, optionIdx]);
+      }
+      // Собрать голоса
+      const allVotes = await dbAll(`SELECT option_idx, user_id FROM poll_votes WHERE poll_id=$1`, [pollId]);
+      const votes = {};
+      allVotes.forEach(v=>{if(!votes[v.option_idx])votes[v.option_idx]=[];votes[v.option_idx].push(v.user_id);});
+      const ctx = poll.context;
+      const update = {type:'poll_updated', payload:{pollId, votes}};
+      if (ctx==='chat'||ctx==='group') {
+        await bcastChat(poll.context_id, update);
+      } else if (ctx==='channel') {
+        const members = await dbAll(`SELECT user_id FROM channel_members WHERE channel_id=$1`, [poll.context_id]);
+        const mids = members.map(m=>m.user_id);
+        clients.forEach((ci,cw)=>{if(mids.includes(ci.userId))send(cw,update);});
+      } else {
+        bcastAll(update);
+      }
+
+    } else if (type === 'get_polls') {
+      const { context, contextId } = payload;
+      const polls = await dbAll(`SELECT * FROM polls WHERE context=$1 AND context_id=$2 ORDER BY ts DESC`, [context||'feed', contextId||'']);
+      const result = [];
+      for (const p of polls) {
+        const allVotes = await dbAll(`SELECT option_idx, user_id FROM poll_votes WHERE poll_id=$1`, [p.id]);
+        const votes = {};
+        allVotes.forEach(v=>{if(!votes[v.option_idx])votes[v.option_idx]=[];votes[v.option_idx].push(v.user_id);});
+        result.push({id:p.id, creatorId:p.creator_id, question:p.question, options:JSON.parse(p.options), context:p.context, contextId:p.context_id, multiple:!!p.multiple, anonymous:!!p.anonymous, ts:Number(p.ts), votes});
+      }
+      send(ws, {type:'polls_list', payload:{context:context||'feed', contextId:contextId||'', polls:result}});
 
     } else if (type === 'send_gift') {
       if (!inf) return;

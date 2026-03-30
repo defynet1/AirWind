@@ -284,6 +284,20 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-draw-tools{display:flex;gap:4px;align-items:center}
 .galpage-draw-tools .gd-clr{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer}
 .galpage-draw-tools .gd-clr.on{border-color:#fff;transform:scale(1.15)}
+/* Polls */
+.poll-card{background:var(--sf);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px;margin:8px 0}
+.poll-q{font-size:15px;font-weight:600;margin-bottom:10px}
+.poll-opt{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;cursor:pointer;margin-bottom:6px;transition:.15s;position:relative;overflow:hidden}
+.poll-opt:hover{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.2)}
+.poll-opt.voted{border-color:rgba(99,102,241,.35);background:rgba(99,102,241,.06)}
+.poll-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(99,102,241,.12);border-radius:10px;transition:width .3s}
+.poll-opt-text{position:relative;z-index:1;flex:1;font-size:13px}
+.poll-opt-pct{position:relative;z-index:1;font-size:12px;color:var(--tx3);font-family:var(--mono);min-width:36px;text-align:right}
+.poll-opt-check{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;position:relative;z-index:1}
+.poll-opt.voted .poll-opt-check{border-color:var(--ac);background:var(--ac);color:#fff}
+.poll-meta{font-size:11px;color:var(--tx3);margin-top:6px;display:flex;gap:12px}
+.poll-create-opts{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.poll-create-opts input{width:100%;background:var(--sf2);border:1px solid var(--br);border-radius:8px;padding:7px 10px;color:var(--tx);font-family:var(--font);font-size:13px;outline:none}
 /* Gallery create modal */
 .galcreate{position:fixed;inset:0;z-index:10000;background:#0f1116;display:flex;flex-direction:column}
 .galcreate-hdr{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -656,6 +670,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
           <button class="stbtn" title="Стикеры" onclick="toggleStickerPanel()">🎭</button>
           <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="addStickerFile(this)">
           <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>
+          <button class="stbtn" title="Опрос" onclick="openPollCreate(openChatId==='__global__'||S.chats[openChatId]?.isGroup?'group':'chat',openChatId)">📊</button>
           <input type="file" id="mediafile" accept="audio/*,video/*" style="display:none" onchange="sendMedia(this)">
 
           <textarea class="minput" id="minput" rows="1" placeholder="Написать сообщение..."
@@ -703,7 +718,8 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div class="feed-hdr">
       <button class="mob-back" onclick="mobileBack()">←</button>
       <div class="feed-hdr-title">Лента</div>
-      <button class="new-post-btn" onclick="openPostModal()">📷 Новая запись</button>
+      <button class="new-post-btn" onclick="openPostModal()">📷 Запись</button>
+      <button class="new-post-btn" style="background:rgba(99,102,241,.2);box-shadow:none" onclick="openPollCreate('feed','')">📊 Опрос</button>
     </div>
     <div class="gal-strip" id="gal-strip"></div>
     <input type="file" id="gal-bg-input" accept="image/*,image/gif" style="display:none" onchange="galPickBg(this)">
@@ -862,6 +878,28 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
     <div id="adm-chats-section" style="display:none">
       <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Удалите все сообщения из чата</div>
       <div class="adm-list" id="adm-chat-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Poll Create Modal -->
+<div class="mo" id="pollm">
+  <div class="md" style="max-width:400px">
+    <button class="mclose" onclick="CM('pollm')">✕</button>
+    <div class="mt">📊 Новый опрос</div>
+    <div class="afield" style="margin-bottom:8px"><input id="poll-q" placeholder="Вопрос"></div>
+    <div class="poll-create-opts" id="poll-opts">
+      <input placeholder="Вариант 1" class="poll-opt-inp">
+      <input placeholder="Вариант 2" class="poll-opt-inp">
+    </div>
+    <button style="background:none;border:none;color:var(--ac);font-size:13px;cursor:pointer;padding:4px 0" onclick="addPollOption()">+ Добавить вариант</button>
+    <div style="display:flex;gap:12px;margin:10px 0;font-size:13px;color:var(--tx2)">
+      <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="poll-multi"> Несколько ответов</label>
+      <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="poll-anon"> Анонимный</label>
+    </div>
+    <div class="mact">
+      <button class="mbtn g" onclick="CM('pollm')">Отмена</button>
+      <button class="mbtn p" onclick="submitPoll()">Создать</button>
     </div>
   </div>
 </div>
@@ -1061,7 +1099,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 let ws=null, me=null, openChatId=null, selUsers=[], editMsgId=null, pendingAvatarUrl=null;
 let pendingPostMedia=null, currentCommentPostId=null, sideTab='chats';
 let openChannelId=null;
-const S={users:{},chats:{},msgs:{},unread:{},online:new Set(),feed:[],comments:{},channels:{},chanPosts:{}};
+const S={users:{},chats:{},msgs:{},unread:{},online:new Set(),feed:[],comments:{},channels:{},chanPosts:{},polls:[]};
 
 // ════════════════════════════════════
 //  WS
@@ -1404,6 +1442,21 @@ function handle({type,payload}){
       alert(payload.effectId?'Эффект применён!':'Эффект снят');
       loadGalleries();
       break;
+    // Polls
+    case 'new_poll':
+      if(!S.polls) S.polls=[];
+      S.polls.unshift(payload.poll);
+      renderPollsInContext(payload.poll.context, payload.poll.contextId);
+      break;
+    case 'poll_updated':
+      if(S.polls){const p=S.polls.find(x=>x.id===payload.pollId);if(p)p.votes=payload.votes;}
+      document.querySelectorAll(`[data-poll-id="${payload.pollId}"]`).forEach(el=>renderPollCard(el,payload.pollId));
+      break;
+    case 'polls_list':
+      if(!S.polls) S.polls=[];
+      payload.polls.forEach(p=>{if(!S.polls.find(x=>x.id===p.id))S.polls.push(p);});
+      renderPollsInContext(payload.context, payload.contextId);
+      break;
     case 'gallery_item_added':
       if(galPageItems) {galPageItems.push(payload.item);renderGalPageItems();}
       break;
@@ -1529,6 +1582,8 @@ function openChat(id){
   updateHeader(id);renderMsgs(id);renderList();
   mobShowView('chat');
   document.getElementById('minput').focus();
+  const c=S.chats[id];
+  loadPolls(id==='__global__'||c?.isGroup?'group':'chat',id);
 }
 function mobileBack(){
   if(isMobile()) document.querySelector('.stabs').classList.remove('hidden');
@@ -2936,6 +2991,7 @@ function switchSideTab(tab){
   if(tab==='feed'){
     if(S.feed.length===0) emit('load_feed',{});
     loadGalleries();
+    loadPolls('feed','');
   }
 }
 
@@ -3925,6 +3981,109 @@ function startGalEffect(){
     galFxAnim=requestAnimationFrame(draw);
   }
   galFxAnim=requestAnimationFrame(draw);
+}
+
+// ════════════════════════════════════
+//  POLLS
+// ════════════════════════════════════
+let pollCreateCtx='feed', pollCreateCtxId='';
+
+function openPollCreate(context,contextId){
+  pollCreateCtx=context||'feed';
+  pollCreateCtxId=contextId||'';
+  document.getElementById('poll-q').value='';
+  document.getElementById('poll-multi').checked=false;
+  document.getElementById('poll-anon').checked=false;
+  const opts=document.getElementById('poll-opts');
+  opts.innerHTML=`<input placeholder="Вариант 1" class="poll-opt-inp"><input placeholder="Вариант 2" class="poll-opt-inp">`;
+  OM('pollm');
+}
+
+function addPollOption(){
+  const opts=document.getElementById('poll-opts');
+  const n=opts.querySelectorAll('.poll-opt-inp').length+1;
+  const inp=document.createElement('input');
+  inp.placeholder='Вариант '+n;inp.className='poll-opt-inp';
+  opts.appendChild(inp);
+}
+
+function submitPoll(){
+  const q=document.getElementById('poll-q').value.trim();
+  if(!q)return alert('Введите вопрос');
+  const options=[...document.querySelectorAll('.poll-opt-inp')].map(i=>i.value.trim()).filter(Boolean);
+  if(options.length<2)return alert('Нужно минимум 2 варианта');
+  const multiple=document.getElementById('poll-multi').checked;
+  const anonymous=document.getElementById('poll-anon').checked;
+  emit('create_poll',{question:q,options,context:pollCreateCtx,contextId:pollCreateCtxId,multiple,anonymous});
+  CM('pollm');
+}
+
+function pollCardHtml(poll){
+  const total=Object.values(poll.votes||{}).reduce((s,arr)=>s+arr.length,0);
+  const myVotes=new Set();
+  Object.entries(poll.votes||{}).forEach(([idx,users])=>{if(users.includes(me?.id))myVotes.add(Number(idx));});
+  const u=S.users[poll.creatorId];
+  let optsHtml=poll.options.map((opt,i)=>{
+    const cnt=(poll.votes||{})[i]?.length||0;
+    const pct=total?Math.round(cnt/total*100):0;
+    const voted=myVotes.has(i);
+    return `<div class="poll-opt ${voted?'voted':''}" onclick="votePoll('${poll.id}',${i})" data-poll-id="${poll.id}">
+      <div class="poll-bar" style="width:${pct}%"></div>
+      <div class="poll-opt-check">${voted?'✓':''}</div>
+      <div class="poll-opt-text">${esc(opt)}</div>
+      <div class="poll-opt-pct">${total?pct+'%':''}</div>
+    </div>`;
+  }).join('');
+  return `<div class="poll-card" data-poll-id="${poll.id}">
+    <div class="poll-q">📊 ${esc(poll.question)}</div>
+    ${optsHtml}
+    <div class="poll-meta">
+      <span>${total} голос${total===1?'':total<5?'а':'ов'}</span>
+      ${poll.multiple?'<span>Несколько ответов</span>':''}
+      ${poll.anonymous?'<span>Анонимный</span>':''}
+      ${u?`<span>${esc(u.displayName||'')}</span>`:''}
+    </div>
+  </div>`;
+}
+
+function renderPollCard(el,pollId){
+  const poll=S.polls.find(p=>p.id===pollId);
+  if(!poll||!el)return;
+  el.outerHTML=pollCardHtml(poll);
+}
+
+function votePoll(pollId,optionIdx){
+  emit('vote_poll',{pollId,optionIdx});
+}
+
+function renderPollsInContext(context,contextId){
+  const polls=(S.polls||[]).filter(p=>p.context===context&&p.contextId===(contextId||''));
+  if(context==='feed'){
+    // Вставить опросы в ленту (вверху)
+    let container=document.getElementById('feed-polls');
+    if(!container){
+      const feedList=document.getElementById('feed-list');
+      if(!feedList)return;
+      container=document.createElement('div');container.id='feed-polls';
+      feedList.parentElement.insertBefore(container,feedList);
+    }
+    container.innerHTML=polls.map(pollCardHtml).join('');
+  } else if((context==='chat'||context==='group')&&openChatId===contextId){
+    // Опросы в чате отображаются как сообщения (вставим в msgs)
+    let container=document.getElementById('chat-polls-'+contextId);
+    if(!container){
+      const msgs=document.getElementById('msgs');
+      if(!msgs)return;
+      container=document.createElement('div');container.id='chat-polls-'+contextId;
+      msgs.appendChild(container);
+      msgs.scrollTop=msgs.scrollHeight;
+    }
+    container.innerHTML=polls.map(pollCardHtml).join('');
+  }
+}
+
+function loadPolls(context,contextId){
+  emit('get_polls',{context,contextId:contextId||''});
 }
 
 </script>

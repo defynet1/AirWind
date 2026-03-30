@@ -118,6 +118,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;h
 
 /* ── INPUT BAR ── */
 .ibar{padding:10px 16px 14px;border-top:1px solid rgba(255,255,255,.06);background:rgba(15,17,22,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin-bottom:52px}
+.attach-strip{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--sf2);border-radius:8px;margin-bottom:8px;border-left:3px solid #22c55e}
 .reply-strip{display:none;align-items:center;gap:8px;padding:6px 10px;background:var(--sf2);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--ac)}
 .reply-strip.on{display:flex}
 .reply-strip-text{flex:1;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -665,10 +666,17 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
             <button class="sp-cat-btn" onclick="openStickerCatalog()">📦 Каталог</button>
           </div>
         </div>
+        <div class="attach-strip" id="attach-strip" style="display:none">
+          <img id="attach-preview" style="width:48px;height:48px;border-radius:8px;object-fit:cover">
+          <span style="flex:1;font-size:12px;color:var(--tx2)" id="attach-name">Фото</span>
+          <button style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px" onclick="clearAttach()">✕</button>
+        </div>
         <div class="irow" id="input-row">
           <button class="stbtn" title="Эмодзи" onclick="toggleEmojiPanel()">😊</button>
           <button class="stbtn" title="Стикеры" onclick="toggleStickerPanel()">🎭</button>
           <input type="file" id="stickerfile" accept="image/*" style="display:none" onchange="addStickerFile(this)">
+          <button class="stbtn" title="Фото" onclick="document.getElementById('photofile').click()">🖼</button>
+          <input type="file" id="photofile" accept="image/*" style="display:none" onchange="attachPhoto(this)">
           <button class="stbtn" title="Музыка или видео" onclick="document.getElementById('mediafile').click()">📎</button>
           <button class="stbtn" title="Опрос" onclick="openPollCreate(openChatId==='__global__'||S.chats[openChatId]?.isGroup?'group':'chat',openChatId)">📊</button>
           <input type="file" id="mediafile" accept="audio/*,video/*" style="display:none" onchange="sendMedia(this)">
@@ -1717,8 +1725,10 @@ function bubbleHtml(m,isGroup){
     if(med){
       const nm=esc(med.name||'файл');
       const src=med.url||med.data||'';
-      if(med.type==='video'||med.type==='videocircle'){
-        mbody=`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${src}" controls preload="metadata" playsinline></video></div>`;
+      if(med.type==='image'){
+        mbody=`<div class="media-wrap"><img src="${src}" style="max-width:100%;border-radius:10px;cursor:pointer;display:block" onclick="openImageFull('${src}')" loading="lazy">${m.text?`<div class="mtext" style="margin-top:6px">${linkify(esc(m.text))}</div>`:''}</div>`;
+      } else if(med.type==='video'||med.type==='videocircle'){
+        mbody=`<div class="media-wrap"><div class="media-name">🎬 ${nm}</div><video src="${src}" controls preload="metadata" playsinline></video>${m.text?`<div class="mtext" style="margin-top:6px">${linkify(esc(m.text))}</div>`:''}</div>`;
       } else {
         mbody=`<div class="media-wrap"><div class="media-name">🎵 ${nm}</div><audio src="${src}" controls preload="metadata"></audio></div>`;
       }
@@ -1747,11 +1757,13 @@ function bubbleHtml(m,isGroup){
 // ════════════════════════════════════
 let replyToId=null;
 let pendingChat=null;
+let attachedPhoto=null; // {url, name}
 
 function sendMsg(){
   if(!openChatId)return;
   const inp=document.getElementById('minput');
-  const text=inp.value.trim();if(!text)return;
+  const text=inp.value.trim();
+  if(!text&&!attachedPhoto)return;
   inp.value='';inp.style.height='';
   document.getElementById('emoji-panel').classList.add('hidden');
   emit('typing_stop',{chatId:openChatId});
@@ -1760,11 +1772,33 @@ function sendMsg(){
     emit('edit_message',{msgId:editMsgId,text});
     clearEdit();
   } else {
-    const payload={chatId:openChatId,text};
+    const payload={chatId:openChatId,text:text||''};
     if(replyToId) payload.replyTo=replyToId;
+    if(attachedPhoto){
+      payload.media=JSON.stringify({type:'image',name:attachedPhoto.name||'Фото',url:attachedPhoto.url});
+      clearAttach();
+    }
     emit('send_message',payload);
     clearReply();
   }
+}
+
+async function attachPhoto(inp){
+  const file=inp.files[0];if(!file||!openChatId)return;
+  try{
+    const url=await uploadFile(file);
+    attachedPhoto={url,name:file.name};
+    document.getElementById('attach-strip').style.display='flex';
+    document.getElementById('attach-preview').src=url;
+    document.getElementById('attach-name').textContent=file.name;
+    document.getElementById('minput').focus();
+  }catch(e){alert('Ошибка загрузки: '+e.message);}
+  inp.value='';
+}
+
+function clearAttach(){
+  attachedPhoto=null;
+  document.getElementById('attach-strip').style.display='none';
 }
 
 function startEdit(msgId){

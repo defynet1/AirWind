@@ -1155,11 +1155,22 @@ wss.on('connection', ws => {
     // ── GALLERY ──
     } else if (type === 'gallery_create') {
       if (!inf) return;
+      console.log('gallery_create from', inf.userId, payload);
       const existing = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
-      if (existing) return send(ws, {type:'error', payload:{msg:'У вас уже есть галерея'}});
+      if (existing) {
+        // Обновить существующую вместо ошибки
+        const { name, bg } = payload;
+        if (name) await dbRun(`UPDATE galleries SET name=$1 WHERE id=$2`, [name, existing.id]);
+        if (bg) await dbRun(`UPDATE galleries SET bg=$1 WHERE id=$2`, [bg, existing.id]);
+        const updated = await dbGet(`SELECT * FROM galleries WHERE id=$1`, [existing.id]);
+        send(ws, {type:'gallery_created', payload:{gallery:{id:existing.id, userId:inf.userId, name:updated.name||name, bg:updated.bg||bg}}});
+        bcastAll({type:'galleries_updated', payload:{}});
+        return;
+      }
       const { name, bg } = payload;
       const id = newId();
       await dbRun(`INSERT INTO galleries(id,user_id,name,bg,created_at) VALUES($1,$2,$3,$4,$5)`, [id, inf.userId, name||'Моя галерея', bg||'', Date.now()]);
+      console.log('gallery created:', id);
       send(ws, {type:'gallery_created', payload:{gallery:{id, userId:inf.userId, name:name||'Моя галерея', bg:bg||''}}});
       bcastAll({type:'galleries_updated', payload:{}});
 

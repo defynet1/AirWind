@@ -123,12 +123,22 @@ async function initDB() {
 
   await pool.query(`CREATE TABLE IF NOT EXISTS galleries (
     id TEXT PRIMARY KEY, user_id TEXT NOT NULL UNIQUE,
+    name TEXT DEFAULT 'Моя галерея',
+    bg TEXT DEFAULT '',
+    draw_data TEXT DEFAULT '',
     created_at BIGINT DEFAULT 0
   )`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS gallery_photos (
+  await pool.query(`CREATE TABLE IF NOT EXISTS gallery_items (
     id TEXT PRIMARY KEY, gallery_id TEXT NOT NULL,
-    user_id TEXT NOT NULL, data TEXT NOT NULL,
-    caption TEXT DEFAULT '', ts BIGINT NOT NULL
+    kind TEXT DEFAULT 'post',
+    data TEXT DEFAULT '',
+    caption TEXT DEFAULT '',
+    x REAL DEFAULT 0, y REAL DEFAULT 0,
+    w REAL DEFAULT 200, h REAL DEFAULT 200,
+    frame TEXT DEFAULT '',
+    font_size INTEGER DEFAULT 18,
+    color TEXT DEFAULT '#ffffff',
+    ts BIGINT NOT NULL
   )`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS sticker_packs (
@@ -1148,48 +1158,70 @@ wss.on('connection', ws => {
       if (!inf) return;
       const existing = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
       if (existing) return send(ws, {type:'error', payload:{msg:'У вас уже есть галерея'}});
+      const { name, bg } = payload;
       const id = newId();
-      await dbRun(`INSERT INTO galleries(id,user_id,created_at) VALUES($1,$2,$3)`, [id, inf.userId, Date.now()]);
-      const gallery = {id, userId:inf.userId};
-      send(ws, {type:'gallery_created', payload:{gallery}});
+      await dbRun(`INSERT INTO galleries(id,user_id,name,bg,created_at) VALUES($1,$2,$3,$4,$5)`, [id, inf.userId, name||'Моя галерея', bg||'', Date.now()]);
+      send(ws, {type:'gallery_created', payload:{gallery:{id, userId:inf.userId, name:name||'Моя галерея', bg:bg||''}}});
       bcastAll({type:'galleries_updated', payload:{}});
 
-    } else if (type === 'gallery_upload') {
+    } else if (type === 'gallery_update') {
+      if (!inf) return;
+      const gal = await dbGet(`SELECT * FROM galleries WHERE user_id=$1`, [inf.userId]);
+      if (!gal) return;
+      const { name, bg, drawData } = payload;
+      if (name!==undefined) await dbRun(`UPDATE galleries SET name=$1 WHERE id=$2`, [name, gal.id]);
+      if (bg!==undefined) await dbRun(`UPDATE galleries SET bg=$1 WHERE id=$2`, [bg, gal.id]);
+      if (drawData!==undefined) await dbRun(`UPDATE galleries SET draw_data=$1 WHERE id=$2`, [drawData, gal.id]);
+      const updated = await dbGet(`SELECT * FROM galleries WHERE id=$1`, [gal.id]);
+      send(ws, {type:'gallery_updated', payload:{gallery:{id:gal.id, userId:inf.userId, name:updated.name, bg:updated.bg, drawData:updated.draw_data||''}}});
+      bcastAll({type:'galleries_updated', payload:{}});
+
+    } else if (type === 'gallery_add_item') {
       if (!inf) return;
       const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
-      if (!gal) return send(ws, {type:'error', payload:{msg:'Сначала создайте галерею'}});
-      const { data, caption } = payload;
-      if (!data) return;
+      if (!gal) return;
+      const { kind, data, caption, x, y, w, h, frame, fontSize, color } = payload;
       const id = newId(), ts = Date.now();
-      await dbRun(`INSERT INTO gallery_photos(id,gallery_id,user_id,data,caption,ts) VALUES($1,$2,$3,$4,$5,$6)`,
-        [id, gal.id, inf.userId, data, caption||'', ts]);
-      send(ws, {type:'gallery_uploaded', payload:{photo:{id,galleryId:gal.id,userId:inf.userId,data,caption:caption||'',ts}}});
+      await dbRun(`INSERT INTO gallery_items(id,gallery_id,kind,data,caption,x,y,w,h,frame,font_size,color,ts) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [id, gal.id, kind||'post', data||'', caption||'', x||0, y||0, w||200, h||200, frame||'', fontSize||18, color||'#ffffff', ts]);
+      send(ws, {type:'gallery_item_added', payload:{item:{id, kind:kind||'post', data:data||'', caption:caption||'', x:x||0, y:y||0, w:w||200, h:h||200, frame:frame||'', fontSize:fontSize||18, color:color||'#ffffff', ts}}});
 
-    } else if (type === 'gallery_delete_photo') {
+    } else if (type === 'gallery_move_item') {
       if (!inf) return;
-      const { photoId } = payload;
-      const photo = await dbGet(`SELECT * FROM gallery_photos WHERE id=$1`, [photoId]);
-      if (!photo || photo.user_id !== inf.userId) return;
-      await dbRun(`DELETE FROM gallery_photos WHERE id=$1`, [photoId]);
-      send(ws, {type:'gallery_photo_deleted', payload:{photoId}});
+      const { itemId, x, y } = payload;
+      const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
+      if (!gal) return;
+      const item = await dbGet(`SELECT * FROM gallery_items WHERE id=$1 AND gallery_id=$2`, [itemId, gal.id]);
+      if (!item) return;
+      await dbRun(`UPDATE gallery_items SET x=$1, y=$2 WHERE id=$3`, [x, y, itemId]);
+      send(ws, {type:'gallery_item_moved', payload:{itemId, x, y}});
+
+    } else if (type === 'gallery_delete_item') {
+      if (!inf) return;
+      const { itemId } = payload;
+      const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
+      if (!gal) return;
+      await dbRun(`DELETE FROM gallery_items WHERE id=$1 AND gallery_id=$2`, [itemId, gal.id]);
+      send(ws, {type:'gallery_item_deleted', payload:{itemId}});
 
     } else if (type === 'gallery_get') {
       const { userId } = payload;
       if (!userId) return;
-      const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [userId]);
-      if (!gal) return send(ws, {type:'gallery_data', payload:{userId, gallery:null, photos:[]}});
-      const photos = await dbAll(`SELECT * FROM gallery_photos WHERE gallery_id=$1 ORDER BY ts DESC`, [gal.id]);
-      send(ws, {type:'gallery_data', payload:{userId, gallery:{id:gal.id,userId}, photos: photos.map(p=>({id:p.id,userId:p.user_id,data:p.data,caption:p.caption||'',ts:Number(p.ts)}))}});
+      const gal = await dbGet(`SELECT * FROM galleries WHERE user_id=$1`, [userId]);
+      if (!gal) return send(ws, {type:'gallery_data', payload:{userId, gallery:null, items:[]}});
+      const items = await dbAll(`SELECT * FROM gallery_items WHERE gallery_id=$1 ORDER BY ts`, [gal.id]);
+      send(ws, {type:'gallery_data', payload:{userId, gallery:{id:gal.id, userId:gal.user_id, name:gal.name, bg:gal.bg, drawData:gal.draw_data||''},
+        items: items.map(i=>({id:i.id, kind:i.kind, data:i.data, caption:i.caption||'', x:Number(i.x), y:Number(i.y), w:Number(i.w), h:Number(i.h), frame:i.frame||'', fontSize:Number(i.font_size||18), color:i.color||'#ffffff', ts:Number(i.ts)}))}});
 
     } else if (type === 'galleries_list') {
-      const gals = await dbAll(`SELECT g.id, g.user_id, (SELECT COUNT(*) FROM gallery_photos WHERE gallery_id=g.id) as cnt FROM galleries g ORDER BY g.created_at DESC`);
-      send(ws, {type:'galleries_list', payload:{galleries: gals.map(g=>({id:g.id, userId:g.user_id, photoCount:Number(g.cnt)}))}});
+      const gals = await dbAll(`SELECT g.id, g.user_id, g.name, g.bg FROM galleries g ORDER BY g.created_at DESC`);
+      send(ws, {type:'galleries_list', payload:{galleries: gals.map(g=>({id:g.id, userId:g.user_id, name:g.name, bg:g.bg}))}});
 
     } else if (type === 'gallery_delete') {
       if (!inf) return;
       const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
       if (!gal) return;
-      await dbRun(`DELETE FROM gallery_photos WHERE gallery_id=$1`, [gal.id]);
+      await dbRun(`DELETE FROM gallery_items WHERE gallery_id=$1`, [gal.id]);
       await dbRun(`DELETE FROM galleries WHERE id=$1`, [gal.id]);
       send(ws, {type:'gallery_deleted', payload:{}});
       bcastAll({type:'galleries_updated', payload:{}});

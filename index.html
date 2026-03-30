@@ -247,36 +247,48 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 #farea.on{display:flex;flex-direction:column;align-items:center}
 #farea::-webkit-scrollbar{width:3px}
 #farea::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
-/* Gallery Stories Bar */
-.gal-bar{width:100%;max-width:560px;display:flex;gap:12px;padding:10px 0;overflow-x:auto;scrollbar-width:none}
-.gal-bar::-webkit-scrollbar{display:none}
-.gal-bubble{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;width:68px}
-.gal-bubble.sticky{position:sticky;left:0;z-index:2;background:var(--bg);padding-right:4px}
-.gal-bubble-ring{width:60px;height:60px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--ac),var(--ac2))}
-.gal-bubble-ring.my{background:rgba(255,255,255,.12);border:2px dashed rgba(255,255,255,.2)}
-.gal-bubble-ring.my .gal-bubble-av{font-size:24px;color:var(--ac)}
-.gal-bubble-av{width:100%;height:100%;border-radius:50%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;overflow:hidden;border:2px solid var(--bg)}
-.gal-bubble-name{font-size:10px;color:var(--tx2);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
-/* Gallery Viewer (fullscreen stories) */
-.gal-viewer{position:fixed;inset:0;z-index:10000;background:#000;display:flex;flex-direction:column;animation:fadeIn .15s}
-.gal-viewer-hdr{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(180deg,rgba(0,0,0,.6),transparent)}
-.gal-viewer-av{width:36px;height:36px;border-radius:50%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
-.gal-viewer-name{font-size:14px;font-weight:600;color:#fff}
-.gal-viewer-time{font-size:11px;color:rgba(255,255,255,.5)}
-.gal-viewer-close{margin-left:auto;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px}
-.gal-viewer-img{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.gal-viewer-img img{max-width:100%;max-height:100%;object-fit:contain}
-.gal-viewer-cap{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;background:rgba(0,0,0,.5);padding:6px 16px;border-radius:20px;max-width:80%;text-align:center;z-index:3}
-.gal-viewer-nav{position:absolute;top:0;bottom:0;width:40%;z-index:2;cursor:pointer}
-.gal-viewer-nav.prev{left:0} .gal-viewer-nav.next{right:0}
-.gal-viewer-progress{display:flex;gap:3px;padding:0 16px;position:absolute;top:6px;left:0;right:0;z-index:4}
-.gal-viewer-bar{flex:1;height:2px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden}
-.gal-viewer-bar.done{background:rgba(255,255,255,.8)}
-.gal-viewer-bar.active{background:rgba(255,255,255,.25)}
-.gal-viewer-bar.active .gvb-fill{height:100%;background:#fff;animation:gvProgress 5s linear forwards}
-@keyframes gvProgress{from{width:0}to{width:100%}}
-.gal-viewer-actions{position:absolute;bottom:16px;right:16px;z-index:3}
-.gal-viewer-del{background:rgba(239,68,68,.3);border:1px solid rgba(239,68,68,.4);color:#ef4444;font-size:12px;padding:6px 12px;border-radius:16px;cursor:pointer}
+/* Gallery Page */
+.galpage{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;background:#0f1116;background-size:cover;background-position:center;overflow:hidden}
+.galpage-hdr{display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);z-index:5;flex-shrink:0}
+.galpage-av{width:40px;height:40px;border-radius:50%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0;cursor:pointer}
+.galpage-info{flex:1;min-width:0}
+.galpage-name{font-size:15px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.galpage-sub{font-size:11px;color:rgba(255,255,255,.5)}
+.galpage-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px 8px}
+.galpage-canvas{flex:1;position:relative;overflow:auto}
+.galpage-canvas.editing{cursor:crosshair}
+.galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s}
+.galpage-item:active{cursor:grabbing;box-shadow:0 8px 30px rgba(0,0,0,.7)}
+.galpage-item img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.galpage-item.framed{border:3px solid var(--ac);box-shadow:0 0 0 1px rgba(99,102,241,.3),0 4px 20px rgba(0,0,0,.5)}
+.galpage-text{position:absolute;color:#fff;font-weight:600;text-shadow:0 2px 8px rgba(0,0,0,.7);cursor:grab;user-select:none;white-space:pre-wrap;padding:4px 8px;border-radius:6px}
+.galpage-text:active{cursor:grabbing}
+.galpage-toolbar{display:flex;align-items:center;gap:6px;padding:10px 16px;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);flex-shrink:0;z-index:5;flex-wrap:wrap}
+.galpage-toolbar .gt-btn{background:rgba(255,255,255,.12);border:none;color:#fff;font-size:13px;padding:8px 14px;border-radius:12px;cursor:pointer;transition:.15s;white-space:nowrap}
+.galpage-toolbar .gt-btn:hover{background:rgba(255,255,255,.2)}
+.galpage-toolbar .gt-btn.active{background:var(--ac)}
+.galpage-draw-tools{display:flex;gap:4px;align-items:center}
+.galpage-draw-tools .gd-clr{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.galpage-draw-tools .gd-clr.on{border-color:#fff;transform:scale(1.15)}
+/* Gallery create modal */
+.galcreate{position:fixed;inset:0;z-index:10000;background:#0f1116;display:flex;flex-direction:column}
+.galcreate-hdr{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid rgba(255,255,255,.06)}
+.galcreate-hdr .mt{flex:1;font-size:17px;font-weight:600}
+.galcreate-body{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:16px}
+.galcreate-preview{width:100%;aspect-ratio:16/9;border-radius:14px;background-size:cover;background-position:center;background-color:rgba(255,255,255,.05);border:2px dashed rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;position:relative}
+.galcreate-preview.has-bg{border:none}
+.galcreate-preview span{color:var(--tx3);font-size:14px}
+.galcreate-bgs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.galcreate-bg{aspect-ratio:16/9;border-radius:10px;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent;transition:.2s}
+.galcreate-bg.on{border-color:var(--ac);box-shadow:0 0 0 2px var(--ac-glow)}
+/* Gallery bubble in feed */
+.gal-strip{width:100%;max-width:560px;display:flex;gap:10px;padding:10px 0;overflow-x:auto;scrollbar-width:none}
+.gal-strip::-webkit-scrollbar{display:none}
+.gal-chip{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--sf);border:1px solid rgba(255,255,255,.07);border-radius:14px;cursor:pointer;flex-shrink:0;transition:.15s}
+.gal-chip:hover{background:var(--sf2);border-color:rgba(255,255,255,.12)}
+.gal-chip-av{width:32px;height:32px;border-radius:50%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
+.gal-chip-name{font-size:13px;font-weight:500;color:var(--tx);white-space:nowrap}
+.gal-chip-add{background:rgba(99,102,241,.08);border:1px dashed rgba(99,102,241,.3);color:var(--ac);font-size:18px;padding:8px 16px}
 .feed{width:100%;max-width:560px;padding:20px 0 40px;display:flex;flex-direction:column;gap:18px}
 .feed-hdr{width:100%;max-width:560px;padding:16px 0 4px;display:flex;align-items:center;justify-content:space-between}
 .feed-hdr-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
@@ -675,8 +687,9 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <div class="feed-hdr-title">Лента</div>
       <button class="new-post-btn" onclick="openPostModal()">📷 Новая запись</button>
     </div>
-    <div class="gal-bar" id="gal-bar" style="max-width:560px;align-self:center"></div>
-    <input type="file" id="gal-upload-input" accept="image/*" style="display:none" onchange="galUploadFile(this)">
+    <div class="gal-strip" id="gal-strip"></div>
+    <input type="file" id="gal-bg-input" accept="image/*,image/gif" style="display:none" onchange="galPickBg(this)">
+    <input type="file" id="gal-addphoto-input" accept="image/*" style="display:none" onchange="galAddPhoto(this)">
     <div class="feed" id="feed-list"></div>
     <div class="feed-more">
       <button id="feed-more-btn" class="mbtn g" style="width:180px;display:none" onclick="loadMoreFeed()">Загрузить ещё</button>
@@ -1355,26 +1368,33 @@ function handle({type,payload}){
       break;
     // Gallery
     case 'gallery_created':
-      alert('Галерея создана! Теперь добавьте фото.');
       loadGalleries();
+      openGalPage(payload.gallery.userId);
       break;
     case 'galleries_list':
       galList=payload.galleries;
-      renderGalBar();
+      renderGalStrip();
       break;
     case 'galleries_updated':
       loadGalleries();
       break;
-    case 'gallery_uploaded':
-      loadGalleries();
+    case 'gallery_updated':
+      if(galPageUserId===me?.id) galPageGallery=payload.gallery;
       break;
-    case 'gallery_photo_deleted':
+    case 'gallery_item_added':
+      if(galPageItems) {galPageItems.push(payload.item);renderGalPageItems();}
+      break;
+    case 'gallery_item_moved':
+      if(galPageItems){const it=galPageItems.find(i=>i.id===payload.itemId);if(it){it.x=payload.x;it.y=payload.y;}}
+      break;
+    case 'gallery_item_deleted':
+      if(galPageItems){galPageItems=galPageItems.filter(i=>i.id!==payload.itemId);renderGalPageItems();}
       break;
     case 'gallery_deleted':
-      loadGalleries();
+      closeGalPage();loadGalleries();
       break;
     case 'gallery_data':
-      if(payload.photos) showGalleryViewer(payload.photos, payload.userId);
+      showGalPage(payload);
       break;
     case 'gift_sent':{
       const gi=GIFTS.find(x=>x.id===payload.giftId);
@@ -3420,156 +3440,252 @@ function submitCreateChannel(){
 }
 
 // ════════════════════════════════════
-//  GALLERY (STORIES)
+//  GALLERY (PERSONAL PAGE)
 // ════════════════════════════════════
-let galList=[];  // [{id,userId,photoCount}]
-let galViewPhotos=[]; let galViewIdx=0; let galTimer=null; let galViewUserId=null;
+let galList=[];
+let galPageUserId=null, galPageGallery=null, galPageItems=null;
+let galCreateBg='';
+let galDrawMode=false, galDrawColor='#ffffff', galDrawSize=3;
 
 function loadGalleries(){emit('galleries_list',{});}
 
-function renderGalBar(){
-  const bar=document.getElementById('gal-bar');
-  if(!bar)return;
+function renderGalStrip(){
+  const strip=document.getElementById('gal-strip');
+  if(!strip)return;
   const hasOwn=galList.some(g=>g.userId===me?.id);
   let html='';
-  // Кнопка создать/добавить
   if(!hasOwn){
-    html+=`<div class="gal-bubble sticky" onclick="galCreate()">
-      <div class="gal-bubble-ring my"><div class="gal-bubble-av">+</div></div>
-      <div class="gal-bubble-name">Создать</div>
-    </div>`;
-  } else {
-    html+=`<div class="gal-bubble sticky" onclick="document.getElementById('gal-upload-input').click()">
-      <div class="gal-bubble-ring my"><div class="gal-bubble-av">+</div></div>
-      <div class="gal-bubble-name">Добавить</div>
-    </div>`;
+    html+=`<div class="gal-chip gal-chip-add" onclick="openGalCreate()">+ Создать галерею</div>`;
   }
-  // Галереи других пользователей (и своя)
   galList.forEach(g=>{
-    const u=S.users[g.userId];
-    if(!u) return;
+    const u=S.users[g.userId];if(!u)return;
     const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
     const inner=u.avatarUrl?'':initials(u.displayName);
-    html+=`<div class="gal-bubble" onclick="openGallery('${g.userId}')">
-      <div class="gal-bubble-ring"><div class="gal-bubble-av" style="${avSt}">${inner}</div></div>
-      <div class="gal-bubble-name">${esc(u.displayName)}</div>
+    html+=`<div class="gal-chip" onclick="openGalPage('${g.userId}')">
+      <div class="gal-chip-av" style="${avSt}">${inner}</div>
+      <div class="gal-chip-name">${esc(g.name||u.displayName)}</div>
     </div>`;
   });
-  bar.innerHTML=html;
+  strip.innerHTML=html;
 }
 
-function galCreate(){
-  emit('gallery_create',{});
+// ── Create gallery (fullscreen) ──
+function openGalCreate(){
+  galCreateBg='';
+  const el=document.createElement('div');el.className='galcreate';el.id='galcreate';
+  el.innerHTML=`<div class="galcreate-hdr">
+    <button class="galpage-close" onclick="document.getElementById('galcreate').remove()">✕</button>
+    <div class="mt">Новая галерея</div>
+  </div>
+  <div class="galcreate-body">
+    <div class="afield"><input id="gc-name" placeholder="Название галереи" value="Моя галерея" style="width:100%;font-size:15px"></div>
+    <div style="font-size:13px;color:var(--tx2);font-weight:600">Фон (фото или GIF)</div>
+    <div class="galcreate-preview" id="gc-preview" onclick="document.getElementById('gal-bg-input').click()">
+      <span>Нажмите, чтобы выбрать</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:auto;padding-top:16px">
+      <button class="mbtn g" style="flex:1" onclick="document.getElementById('galcreate').remove()">Отмена</button>
+      <button class="mbtn p" style="flex:1" onclick="submitGalCreate()">Создать</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
 }
 
-function galUploadFile(inp){
+function galPickBg(inp){
   const file=inp.files[0];if(!file)return;
-  if(file.size>5*1024*1024){alert('Максимум 5 МБ');inp.value='';return;}
   const reader=new FileReader();
   reader.onload=e=>{
-    const img=new Image();
-    img.onload=()=>{
-      const max=800;let w=img.width,h=img.height;
-      if(w>max||h>max){const s=Math.min(max/w,max/h);w*=s;h*=s;}
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      emit('gallery_upload',{data:c.toDataURL('image/jpeg',0.85)});
-    };
-    img.src=e.target.result;
+    galCreateBg=e.target.result;
+    const prev=document.getElementById('gc-preview');
+    if(prev){prev.style.backgroundImage=`url(${galCreateBg})`;prev.classList.add('has-bg');prev.querySelector('span').textContent='';}
+    // Also for editing existing gallery
+    if(galPageUserId===me?.id&&galPageGallery){
+      emit('gallery_update',{bg:galCreateBg});
+      const canvas=document.querySelector('.galpage');
+      if(canvas) canvas.style.backgroundImage=`url(${galCreateBg})`;
+    }
   };
   reader.readAsDataURL(file);
   inp.value='';
 }
 
-function openGallery(userId){
-  galViewUserId=userId;
+function submitGalCreate(){
+  const name=(document.getElementById('gc-name')?.value||'').trim()||'Моя галерея';
+  emit('gallery_create',{name,bg:galCreateBg});
+  const el=document.getElementById('galcreate');if(el)el.remove();
+}
+
+// ── Gallery page (fullscreen view) ──
+function openGalPage(userId){
+  galPageUserId=userId;
   emit('gallery_get',{userId});
 }
 
-function showGalleryViewer(photos,userId){
-  if(!photos.length)return alert('Галерея пуста');
-  galViewPhotos=photos;galViewIdx=0;
-  const el=document.createElement('div');
-  el.className='gal-viewer';el.id='gal-viewer';
-  el.innerHTML=buildGalViewerHtml();
-  document.body.appendChild(el);
-  startGalTimer();
-}
-
-function buildGalViewerHtml(){
-  const p=galViewPhotos[galViewIdx];
-  const u=S.users[galViewUserId]||{};
+function showGalPage(payload){
+  galPageUserId=payload.userId;
+  galPageGallery=payload.gallery;
+  galPageItems=payload.items||[];
+  if(!galPageGallery) return alert('Галерея не найдена');
+  const u=S.users[payload.userId]||{};
+  const isOwner=payload.userId===me?.id;
   const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
   const inner=u.avatarUrl?'':initials(u.displayName||'?');
-  const isOwner=galViewUserId===me?.id;
-  const ago=timeAgo(p.ts);
-  return `<div class="gal-viewer-progress">${galViewPhotos.map((_,i)=>{
-    if(i<galViewIdx)return `<div class="gal-viewer-bar done"></div>`;
-    if(i===galViewIdx)return `<div class="gal-viewer-bar active"><div class="gvb-fill"></div></div>`;
-    return `<div class="gal-viewer-bar"></div>`;
-  }).join('')}</div>
-  <div class="gal-viewer-hdr">
-    <div class="gal-viewer-av" style="${avSt}">${inner}</div>
-    <div>
-      <div class="gal-viewer-name">${esc(u.displayName||'?')}${verifiedHtml(u)}</div>
-      <div class="gal-viewer-time">${ago}</div>
+  const bgStyle=galPageGallery.bg?`background-image:url(${galPageGallery.bg})`:'';
+
+  const el=document.createElement('div');el.className='galpage';el.id='galpage';
+  el.style.cssText=bgStyle;
+  el.innerHTML=`<div class="galpage-hdr">
+    <div class="galpage-av" style="${avSt}" onclick="closeGalPage();viewUserProfile('${payload.userId}')">${inner}</div>
+    <div class="galpage-info">
+      <div class="galpage-name">${esc(galPageGallery.name)}${verifiedHtml(u)}</div>
+      <div class="galpage-sub">@${esc(u.username||'')}</div>
     </div>
-    <button class="gal-viewer-close" onclick="closeGalleryViewer()">✕</button>
+    <button class="galpage-close" onclick="closeGalPage()">✕</button>
   </div>
-  <div class="gal-viewer-img"><img src="${p.data}"></div>
-  ${p.caption?`<div class="gal-viewer-cap">${esc(p.caption)}</div>`:''}
-  ${isOwner?`<div class="gal-viewer-actions"><button class="gal-viewer-del" onclick="galDeletePhoto('${p.id}')">Удалить</button></div>`:''}
-  <div class="gal-viewer-nav prev" onclick="galPrev()"></div>
-  <div class="gal-viewer-nav next" onclick="galNext()"></div>`;
+  <div class="galpage-canvas" id="gp-canvas">
+    ${galPageGallery.drawData?`<img src="${galPageGallery.drawData}" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1">`:''}
+    <canvas id="gp-draw-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none"></canvas>
+  </div>
+  ${isOwner?`<div class="galpage-toolbar" id="gp-toolbar">
+    <button class="gt-btn" onclick="document.getElementById('gal-addphoto-input').click()">📷 Фото</button>
+    <button class="gt-btn" onclick="galAddText()">✏️ Текст</button>
+    <button class="gt-btn" id="gp-draw-btn" onclick="galToggleDraw()">🎨 Рисовать</button>
+    <button class="gt-btn" onclick="document.getElementById('gal-bg-input').click()">🖼 Фон</button>
+    <div class="galpage-draw-tools" id="gp-draw-tools" style="display:none">
+      <div class="gd-clr on" style="background:#fff" onclick="galSetDrawClr('#ffffff',this)"></div>
+      <div class="gd-clr" style="background:#ef4444" onclick="galSetDrawClr('#ef4444',this)"></div>
+      <div class="gd-clr" style="background:#fbbf24" onclick="galSetDrawClr('#fbbf24',this)"></div>
+      <div class="gd-clr" style="background:#22c55e" onclick="galSetDrawClr('#22c55e',this)"></div>
+      <div class="gd-clr" style="background:#3b82f6" onclick="galSetDrawClr('#3b82f6',this)"></div>
+      <input type="range" min="1" max="20" value="3" style="width:60px;accent-color:var(--ac)" oninput="galDrawSize=this.value">
+      <button class="gt-btn" style="padding:4px 8px;font-size:11px" onclick="galSaveDraw()">💾</button>
+      <button class="gt-btn" style="padding:4px 8px;font-size:11px" onclick="galClearDraw()">🗑️</button>
+    </div>
+  </div>`:''}`;
+  document.body.appendChild(el);
+  renderGalPageItems();
 }
 
-function timeAgo(ts){
-  const d=Math.floor((Date.now()-ts)/1000);
-  if(d<60)return 'только что';
-  if(d<3600)return Math.floor(d/60)+' мин. назад';
-  if(d<86400)return Math.floor(d/3600)+' ч. назад';
-  return Math.floor(d/86400)+' дн. назад';
+function renderGalPageItems(){
+  const canvas=document.getElementById('gp-canvas');
+  if(!canvas)return;
+  canvas.querySelectorAll('.galpage-item,.galpage-text').forEach(e=>e.remove());
+  const isOwner=galPageUserId===me?.id;
+  (galPageItems||[]).forEach(it=>{
+    if(it.kind==='text'){
+      const d=document.createElement('div');d.className='galpage-text';d.id='gi_'+it.id;
+      d.style.cssText=`left:${it.x}px;top:${it.y}px;font-size:${it.fontSize||18}px;color:${it.color||'#fff'}`;
+      d.textContent=it.data;
+      if(isOwner){
+        makeDraggable(d,it);
+        d.addEventListener('dblclick',()=>{if(!confirm('Удалить текст?'))return;emit('gallery_delete_item',{itemId:it.id});});
+      }
+      canvas.appendChild(d);
+    } else {
+      const d=document.createElement('div');d.className='galpage-item'+(it.frame?' framed':'');d.id='gi_'+it.id;
+      d.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px`;
+      d.innerHTML=`<img src="${it.data}">${it.caption?`<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;text-align:center">${esc(it.caption)}</div>`:''}`;
+      if(isOwner){
+        makeDraggable(d,it);
+        d.addEventListener('dblclick',()=>{if(!confirm('Удалить элемент?'))return;emit('gallery_delete_item',{itemId:it.id});});
+      } else {
+        d.addEventListener('click',()=>openImageFull(it.data));
+      }
+      canvas.appendChild(d);
+    }
+  });
 }
 
-function startGalTimer(){
-  clearTimeout(galTimer);
-  galTimer=setTimeout(()=>galNext(),5000);
+function makeDraggable(el,item){
+  let sx,sy,ox,oy,dragging=false;
+  const onDown=e=>{
+    e.preventDefault();
+    const t=e.touches?e.touches[0]:e;
+    sx=t.clientX;sy=t.clientY;ox=item.x;oy=item.y;dragging=true;
+    el.style.zIndex=10;
+  };
+  const onMove=e=>{
+    if(!dragging)return;
+    const t=e.touches?e.touches[0]:e;
+    item.x=ox+(t.clientX-sx);item.y=oy+(t.clientY-sy);
+    el.style.left=item.x+'px';el.style.top=item.y+'px';
+  };
+  const onUp=()=>{
+    if(!dragging)return;dragging=false;el.style.zIndex='';
+    emit('gallery_move_item',{itemId:item.id,x:item.x,y:item.y});
+  };
+  el.addEventListener('mousedown',onDown);el.addEventListener('touchstart',onDown,{passive:false});
+  document.addEventListener('mousemove',onMove);document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('mouseup',onUp);document.addEventListener('touchend',onUp);
 }
 
-function galNext(){
-  clearTimeout(galTimer);
-  if(galViewIdx<galViewPhotos.length-1){
-    galViewIdx++;
-    document.getElementById('gal-viewer').innerHTML=buildGalViewerHtml();
-    startGalTimer();
+function closeGalPage(){
+  galPageUserId=null;galPageGallery=null;galPageItems=null;galDrawMode=false;
+  const el=document.getElementById('galpage');if(el)el.remove();
+}
+
+// ── Add photo to gallery ──
+function galAddPhoto(inp){
+  const file=inp.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const data=e.target.result;
+    const canvas=document.getElementById('gp-canvas');
+    const x=Math.random()*200+20, y=Math.random()*200+20;
+    emit('gallery_add_item',{kind:'post',data,x,y,w:220,h:220});
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+
+// ── Add text ──
+function galAddText(){
+  const text=prompt('Введите текст:');
+  if(!text)return;
+  const size=prompt('Размер шрифта (18-48):','24')||'24';
+  const color=prompt('Цвет (#ffffff):','#ffffff')||'#ffffff';
+  const x=Math.random()*150+30, y=Math.random()*150+60;
+  emit('gallery_add_item',{kind:'text',data:text,x,y,w:0,h:0,fontSize:parseInt(size),color});
+}
+
+// ── Draw on gallery ──
+function galToggleDraw(){
+  galDrawMode=!galDrawMode;
+  const c=document.getElementById('gp-draw-canvas');
+  const btn=document.getElementById('gp-draw-btn');
+  const tools=document.getElementById('gp-draw-tools');
+  const cv=document.getElementById('gp-canvas');
+  if(galDrawMode){
+    btn.classList.add('active');tools.style.display='flex';
+    c.style.pointerEvents='auto';cv.classList.add('editing');
+    c.width=cv.offsetWidth;c.height=cv.offsetHeight;
+    initGalDraw(c);
   } else {
-    closeGalleryViewer();
+    btn.classList.remove('active');tools.style.display='none';
+    c.style.pointerEvents='none';cv.classList.remove('editing');
   }
 }
 
-function galPrev(){
-  clearTimeout(galTimer);
-  if(galViewIdx>0){
-    galViewIdx--;
-    document.getElementById('gal-viewer').innerHTML=buildGalViewerHtml();
-    startGalTimer();
-  }
+function initGalDraw(c){
+  const ctx=c.getContext('2d');
+  let drawing=false;
+  c.onmousedown=c.ontouchstart=e=>{e.preventDefault();drawing=true;const t=e.touches?e.touches[0]:e;const r=c.getBoundingClientRect();ctx.beginPath();ctx.moveTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));};
+  c.onmousemove=c.ontouchmove=e=>{if(!drawing)return;e.preventDefault();const t=e.touches?e.touches[0]:e;const r=c.getBoundingClientRect();ctx.lineWidth=galDrawSize;ctx.strokeStyle=galDrawColor;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));ctx.stroke();};
+  c.onmouseup=c.ontouchend=()=>{drawing=false;};
 }
 
-function closeGalleryViewer(){
-  clearTimeout(galTimer);
-  const el=document.getElementById('gal-viewer');
-  if(el)el.remove();
+function galSetDrawClr(clr,el){galDrawColor=clr;document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+
+function galSaveDraw(){
+  const c=document.getElementById('gp-draw-canvas');
+  emit('gallery_update',{drawData:c.toDataURL('image/png')});
+  alert('Рисунок сохранён');
 }
 
-function galDeletePhoto(photoId){
-  if(!confirm('Удалить это фото из галереи?'))return;
-  emit('gallery_delete_photo',{photoId});
-  galViewPhotos=galViewPhotos.filter(p=>p.id!==photoId);
-  if(!galViewPhotos.length){closeGalleryViewer();return;}
-  if(galViewIdx>=galViewPhotos.length)galViewIdx=galViewPhotos.length-1;
-  document.getElementById('gal-viewer').innerHTML=buildGalViewerHtml();
-  startGalTimer();
+function galClearDraw(){
+  const c=document.getElementById('gp-draw-canvas');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+  emit('gallery_update',{drawData:''});
 }
 
 </script>

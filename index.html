@@ -247,6 +247,35 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 #farea.on{display:flex;flex-direction:column;align-items:center}
 #farea::-webkit-scrollbar{width:3px}
 #farea::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px}
+/* Gallery Stories Bar */
+.gal-bar{width:100%;max-width:560px;display:flex;gap:12px;padding:10px 0;overflow-x:auto;scrollbar-width:none}
+.gal-bar::-webkit-scrollbar{display:none}
+.gal-bubble{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0;width:68px}
+.gal-bubble-ring{width:60px;height:60px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--ac),var(--ac2))}
+.gal-bubble-ring.my{background:rgba(255,255,255,.12);border:2px dashed rgba(255,255,255,.2)}
+.gal-bubble-ring.my .gal-bubble-av{font-size:24px;color:var(--ac)}
+.gal-bubble-av{width:100%;height:100%;border-radius:50%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;overflow:hidden;border:2px solid var(--bg)}
+.gal-bubble-name{font-size:10px;color:var(--tx2);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+/* Gallery Viewer (fullscreen stories) */
+.gal-viewer{position:fixed;inset:0;z-index:10000;background:#000;display:flex;flex-direction:column;animation:fadeIn .15s}
+.gal-viewer-hdr{position:absolute;top:0;left:0;right:0;z-index:3;display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(180deg,rgba(0,0,0,.6),transparent)}
+.gal-viewer-av{width:36px;height:36px;border-radius:50%;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
+.gal-viewer-name{font-size:14px;font-weight:600;color:#fff}
+.gal-viewer-time{font-size:11px;color:rgba(255,255,255,.5)}
+.gal-viewer-close{margin-left:auto;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px}
+.gal-viewer-img{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.gal-viewer-img img{max-width:100%;max-height:100%;object-fit:contain}
+.gal-viewer-cap{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;background:rgba(0,0,0,.5);padding:6px 16px;border-radius:20px;max-width:80%;text-align:center;z-index:3}
+.gal-viewer-nav{position:absolute;top:0;bottom:0;width:40%;z-index:2;cursor:pointer}
+.gal-viewer-nav.prev{left:0} .gal-viewer-nav.next{right:0}
+.gal-viewer-progress{display:flex;gap:3px;padding:0 16px;position:absolute;top:6px;left:0;right:0;z-index:4}
+.gal-viewer-bar{flex:1;height:2px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden}
+.gal-viewer-bar.done{background:rgba(255,255,255,.8)}
+.gal-viewer-bar.active{background:rgba(255,255,255,.25)}
+.gal-viewer-bar.active .gvb-fill{height:100%;background:#fff;animation:gvProgress 5s linear forwards}
+@keyframes gvProgress{from{width:0}to{width:100%}}
+.gal-viewer-actions{position:absolute;bottom:16px;right:16px;z-index:3}
+.gal-viewer-del{background:rgba(239,68,68,.3);border:1px solid rgba(239,68,68,.4);color:#ef4444;font-size:12px;padding:6px 12px;border-radius:16px;cursor:pointer}
 .feed{width:100%;max-width:560px;padding:20px 0 40px;display:flex;flex-direction:column;gap:18px}
 .feed-hdr{width:100%;max-width:560px;padding:16px 0 4px;display:flex;align-items:center;justify-content:space-between}
 .feed-hdr-title{font-size:17px;font-weight:600;letter-spacing:-.3px}
@@ -645,6 +674,8 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       <div class="feed-hdr-title">Лента</div>
       <button class="new-post-btn" onclick="openPostModal()">📷 Новая запись</button>
     </div>
+    <div class="gal-bar" id="gal-bar" style="max-width:560px;align-self:center"></div>
+    <input type="file" id="gal-upload-input" accept="image/*" style="display:none" onchange="galUploadFile(this)">
     <div class="feed" id="feed-list"></div>
     <div class="feed-more">
       <button id="feed-more-btn" class="mbtn g" style="width:180px;display:none" onclick="loadMoreFeed()">Загрузить ещё</button>
@@ -1320,6 +1351,29 @@ function handle({type,payload}){
       S.msgs[payload.chatId]=[];
       if(openChatId===payload.chatId) renderMsgs(openChatId);
       renderList();
+      break;
+    // Gallery
+    case 'gallery_created':
+      alert('Галерея создана! Теперь добавьте фото.');
+      loadGalleries();
+      break;
+    case 'galleries_list':
+      galList=payload.galleries;
+      renderGalBar();
+      break;
+    case 'galleries_updated':
+      loadGalleries();
+      break;
+    case 'gallery_uploaded':
+      loadGalleries();
+      break;
+    case 'gallery_photo_deleted':
+      break;
+    case 'gallery_deleted':
+      loadGalleries();
+      break;
+    case 'gallery_data':
+      if(payload.photos) showGalleryViewer(payload.photos, payload.userId);
       break;
     case 'gift_sent':{
       const gi=GIFTS.find(x=>x.id===payload.giftId);
@@ -2832,7 +2886,10 @@ function switchSideTab(tab){
     document.getElementById('farea').classList.toggle('on',tab==='feed');
     document.getElementById('charea').classList.toggle('on',tab==='channels');
   }
-  if(tab==='feed'&&S.feed.length===0) emit('load_feed',{});
+  if(tab==='feed'){
+    if(S.feed.length===0) emit('load_feed',{});
+    loadGalleries();
+  }
 }
 
 function postCardHtml(p){
@@ -3359,6 +3416,159 @@ function submitCreateChannel(){
   if(!name) return alert('Введите название');
   emit('create_channel',{name,description:document.getElementById('cc-desc').value.trim()});
   CM('ccm');
+}
+
+// ════════════════════════════════════
+//  GALLERY (STORIES)
+// ════════════════════════════════════
+let galList=[];  // [{id,userId,photoCount}]
+let galViewPhotos=[]; let galViewIdx=0; let galTimer=null; let galViewUserId=null;
+
+function loadGalleries(){emit('galleries_list',{});}
+
+function renderGalBar(){
+  const bar=document.getElementById('gal-bar');
+  if(!bar)return;
+  const hasOwn=galList.some(g=>g.userId===me?.id);
+  let html='';
+  // Кнопка создать/добавить
+  if(!hasOwn){
+    html+=`<div class="gal-bubble" onclick="galCreate()">
+      <div class="gal-bubble-ring my"><div class="gal-bubble-av">+</div></div>
+      <div class="gal-bubble-name">Создать</div>
+    </div>`;
+  } else {
+    html+=`<div class="gal-bubble" onclick="document.getElementById('gal-upload-input').click()">
+      <div class="gal-bubble-ring my"><div class="gal-bubble-av">+</div></div>
+      <div class="gal-bubble-name">Добавить</div>
+    </div>`;
+  }
+  // Галереи других пользователей (и своя)
+  galList.forEach(g=>{
+    const u=S.users[g.userId];
+    if(!u) return;
+    const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
+    const inner=u.avatarUrl?'':initials(u.displayName);
+    html+=`<div class="gal-bubble" onclick="openGallery('${g.userId}')">
+      <div class="gal-bubble-ring"><div class="gal-bubble-av" style="${avSt}">${inner}</div></div>
+      <div class="gal-bubble-name">${esc(u.displayName)}</div>
+    </div>`;
+  });
+  bar.innerHTML=html;
+}
+
+function galCreate(){
+  emit('gallery_create',{});
+}
+
+function galUploadFile(inp){
+  const file=inp.files[0];if(!file)return;
+  if(file.size>5*1024*1024){alert('Максимум 5 МБ');inp.value='';return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=800;let w=img.width,h=img.height;
+      if(w>max||h>max){const s=Math.min(max/w,max/h);w*=s;h*=s;}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      emit('gallery_upload',{data:c.toDataURL('image/jpeg',0.85)});
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+
+function openGallery(userId){
+  galViewUserId=userId;
+  emit('gallery_get',{userId});
+}
+
+function showGalleryViewer(photos,userId){
+  if(!photos.length)return alert('Галерея пуста');
+  galViewPhotos=photos;galViewIdx=0;
+  const el=document.createElement('div');
+  el.className='gal-viewer';el.id='gal-viewer';
+  el.innerHTML=buildGalViewerHtml();
+  document.body.appendChild(el);
+  startGalTimer();
+}
+
+function buildGalViewerHtml(){
+  const p=galViewPhotos[galViewIdx];
+  const u=S.users[galViewUserId]||{};
+  const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
+  const inner=u.avatarUrl?'':initials(u.displayName||'?');
+  const isOwner=galViewUserId===me?.id;
+  const ago=timeAgo(p.ts);
+  return `<div class="gal-viewer-progress">${galViewPhotos.map((_,i)=>{
+    if(i<galViewIdx)return `<div class="gal-viewer-bar done"></div>`;
+    if(i===galViewIdx)return `<div class="gal-viewer-bar active"><div class="gvb-fill"></div></div>`;
+    return `<div class="gal-viewer-bar"></div>`;
+  }).join('')}</div>
+  <div class="gal-viewer-hdr">
+    <div class="gal-viewer-av" style="${avSt}">${inner}</div>
+    <div>
+      <div class="gal-viewer-name">${esc(u.displayName||'?')}${verifiedHtml(u)}</div>
+      <div class="gal-viewer-time">${ago}</div>
+    </div>
+    <button class="gal-viewer-close" onclick="closeGalleryViewer()">✕</button>
+  </div>
+  <div class="gal-viewer-img"><img src="${p.data}"></div>
+  ${p.caption?`<div class="gal-viewer-cap">${esc(p.caption)}</div>`:''}
+  ${isOwner?`<div class="gal-viewer-actions"><button class="gal-viewer-del" onclick="galDeletePhoto('${p.id}')">Удалить</button></div>`:''}
+  <div class="gal-viewer-nav prev" onclick="galPrev()"></div>
+  <div class="gal-viewer-nav next" onclick="galNext()"></div>`;
+}
+
+function timeAgo(ts){
+  const d=Math.floor((Date.now()-ts)/1000);
+  if(d<60)return 'только что';
+  if(d<3600)return Math.floor(d/60)+' мин. назад';
+  if(d<86400)return Math.floor(d/3600)+' ч. назад';
+  return Math.floor(d/86400)+' дн. назад';
+}
+
+function startGalTimer(){
+  clearTimeout(galTimer);
+  galTimer=setTimeout(()=>galNext(),5000);
+}
+
+function galNext(){
+  clearTimeout(galTimer);
+  if(galViewIdx<galViewPhotos.length-1){
+    galViewIdx++;
+    document.getElementById('gal-viewer').innerHTML=buildGalViewerHtml();
+    startGalTimer();
+  } else {
+    closeGalleryViewer();
+  }
+}
+
+function galPrev(){
+  clearTimeout(galTimer);
+  if(galViewIdx>0){
+    galViewIdx--;
+    document.getElementById('gal-viewer').innerHTML=buildGalViewerHtml();
+    startGalTimer();
+  }
+}
+
+function closeGalleryViewer(){
+  clearTimeout(galTimer);
+  const el=document.getElementById('gal-viewer');
+  if(el)el.remove();
+}
+
+function galDeletePhoto(photoId){
+  if(!confirm('Удалить это фото из галереи?'))return;
+  emit('gallery_delete_photo',{photoId});
+  galViewPhotos=galViewPhotos.filter(p=>p.id!==photoId);
+  if(!galViewPhotos.length){closeGalleryViewer();return;}
+  if(galViewIdx>=galViewPhotos.length)galViewIdx=galViewPhotos.length-1;
+  document.getElementById('gal-viewer').innerHTML=buildGalViewerHtml();
+  startGalTimer();
 }
 
 </script>

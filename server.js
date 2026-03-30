@@ -121,6 +121,16 @@ async function initDB() {
     gift_id TEXT NOT NULL, ts BIGINT NOT NULL
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS galleries (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL UNIQUE,
+    created_at BIGINT DEFAULT 0
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS gallery_photos (
+    id TEXT PRIMARY KEY, gallery_id TEXT NOT NULL,
+    user_id TEXT NOT NULL, data TEXT NOT NULL,
+    caption TEXT DEFAULT '', ts BIGINT NOT NULL
+  )`);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS sticker_packs (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL,
     cover TEXT DEFAULT '', created_at BIGINT DEFAULT 0
@@ -1132,6 +1142,57 @@ wss.on('connection', ws => {
       const rows = await dbAll(`SELECT c.id, c.name, c.is_group, (SELECT COUNT(*) FROM messages WHERE chat_id=c.id) as msg_count FROM chats c ORDER BY c.name`);
       const chats = rows.map(r => ({id:r.id, name:r.name, isGroup:!!r.is_group, msgCount:Number(r.msg_count)}));
       send(ws,{type:'admin_chats',payload:{chats}});
+
+    // ── GALLERY ──
+    } else if (type === 'gallery_create') {
+      if (!inf) return;
+      const existing = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
+      if (existing) return send(ws, {type:'error', payload:{msg:'У вас уже есть галерея'}});
+      const id = newId();
+      await dbRun(`INSERT INTO galleries(id,user_id,created_at) VALUES($1,$2,$3)`, [id, inf.userId, Date.now()]);
+      const gallery = {id, userId:inf.userId};
+      send(ws, {type:'gallery_created', payload:{gallery}});
+      bcastAll({type:'galleries_updated', payload:{}});
+
+    } else if (type === 'gallery_upload') {
+      if (!inf) return;
+      const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
+      if (!gal) return send(ws, {type:'error', payload:{msg:'Сначала создайте галерею'}});
+      const { data, caption } = payload;
+      if (!data) return;
+      const id = newId(), ts = Date.now();
+      await dbRun(`INSERT INTO gallery_photos(id,gallery_id,user_id,data,caption,ts) VALUES($1,$2,$3,$4,$5,$6)`,
+        [id, gal.id, inf.userId, data, caption||'', ts]);
+      send(ws, {type:'gallery_uploaded', payload:{photo:{id,galleryId:gal.id,userId:inf.userId,data,caption:caption||'',ts}}});
+
+    } else if (type === 'gallery_delete_photo') {
+      if (!inf) return;
+      const { photoId } = payload;
+      const photo = await dbGet(`SELECT * FROM gallery_photos WHERE id=$1`, [photoId]);
+      if (!photo || photo.user_id !== inf.userId) return;
+      await dbRun(`DELETE FROM gallery_photos WHERE id=$1`, [photoId]);
+      send(ws, {type:'gallery_photo_deleted', payload:{photoId}});
+
+    } else if (type === 'gallery_get') {
+      const { userId } = payload;
+      if (!userId) return;
+      const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [userId]);
+      if (!gal) return send(ws, {type:'gallery_data', payload:{userId, gallery:null, photos:[]}});
+      const photos = await dbAll(`SELECT * FROM gallery_photos WHERE gallery_id=$1 ORDER BY ts DESC`, [gal.id]);
+      send(ws, {type:'gallery_data', payload:{userId, gallery:{id:gal.id,userId}, photos: photos.map(p=>({id:p.id,userId:p.user_id,data:p.data,caption:p.caption||'',ts:Number(p.ts)}))}});
+
+    } else if (type === 'galleries_list') {
+      const gals = await dbAll(`SELECT g.id, g.user_id, (SELECT COUNT(*) FROM gallery_photos WHERE gallery_id=g.id) as cnt FROM galleries g ORDER BY g.created_at DESC`);
+      send(ws, {type:'galleries_list', payload:{galleries: gals.map(g=>({id:g.id, userId:g.user_id, photoCount:Number(g.cnt)}))}});
+
+    } else if (type === 'gallery_delete') {
+      if (!inf) return;
+      const gal = await dbGet(`SELECT id FROM galleries WHERE user_id=$1`, [inf.userId]);
+      if (!gal) return;
+      await dbRun(`DELETE FROM gallery_photos WHERE gallery_id=$1`, [gal.id]);
+      await dbRun(`DELETE FROM galleries WHERE id=$1`, [gal.id]);
+      send(ws, {type:'gallery_deleted', payload:{}});
+      bcastAll({type:'galleries_updated', payload:{}});
 
     } else if (type === 'send_gift') {
       if (!inf) return;

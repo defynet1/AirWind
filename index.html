@@ -256,9 +256,9 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-name{font-size:15px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .galpage-sub{font-size:11px;color:rgba(255,255,255,.5)}
 .galpage-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:4px 8px}
-.galpage-canvas{flex:1;position:relative;overflow:auto}
+.galpage-canvas{flex:1;position:relative;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
 .galpage-canvas.editing{cursor:crosshair}
-.galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s}
+.galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s;touch-action:auto}
 .galpage-item:active{cursor:grabbing;box-shadow:0 8px 30px rgba(0,0,0,.7)}
 .galpage-item img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
 .galpage-item.framed{border:3px solid var(--ac);box-shadow:0 0 0 1px rgba(99,102,241,.3),0 4px 20px rgba(0,0,0,.5)}
@@ -3633,26 +3633,43 @@ function renderGalPageItems(){
 }
 
 function makeDraggable(el,item){
-  let sx,sy,ox,oy,dragging=false;
-  const onDown=e=>{
+  let sx,sy,ox,oy,dragging=false,holdTimer=null;
+  // Мышь — перетаскивание сразу
+  el.addEventListener('mousedown',e=>{
     e.preventDefault();
-    const t=e.touches?e.touches[0]:e;
-    sx=t.clientX;sy=t.clientY;ox=item.x;oy=item.y;dragging=true;
-    el.style.zIndex=10;
-  };
-  const onMove=e=>{
+    sx=e.clientX;sy=e.clientY;ox=item.x;oy=item.y;dragging=true;
+    el.style.zIndex=10;el.style.opacity='.8';
+  });
+  document.addEventListener('mousemove',e=>{
     if(!dragging)return;
-    const t=e.touches?e.touches[0]:e;
+    item.x=ox+(e.clientX-sx);item.y=oy+(e.clientY-sy);
+    el.style.left=item.x+'px';el.style.top=item.y+'px';
+  });
+  document.addEventListener('mouseup',()=>{
+    if(!dragging)return;dragging=false;el.style.zIndex='';el.style.opacity='';
+    emit('gallery_move_item',{galleryId:galPageGallery.id,itemId:item.id,x:item.x,y:item.y});
+  });
+  // Тач — long press (300ms) для перетаскивания, иначе скролл
+  el.addEventListener('touchstart',e=>{
+    const t=e.touches[0];
+    sx=t.clientX;sy=t.clientY;ox=item.x;oy=item.y;
+    holdTimer=setTimeout(()=>{
+      dragging=true;el.style.zIndex=10;el.style.opacity='.8';
+      if(navigator.vibrate)navigator.vibrate(30);
+    },300);
+  },{passive:true});
+  el.addEventListener('touchmove',e=>{
+    if(!dragging){clearTimeout(holdTimer);holdTimer=null;return;}
+    e.preventDefault();
+    const t=e.touches[0];
     item.x=ox+(t.clientX-sx);item.y=oy+(t.clientY-sy);
     el.style.left=item.x+'px';el.style.top=item.y+'px';
-  };
-  const onUp=()=>{
-    if(!dragging)return;dragging=false;el.style.zIndex='';
+  },{passive:false});
+  el.addEventListener('touchend',()=>{
+    clearTimeout(holdTimer);holdTimer=null;
+    if(!dragging)return;dragging=false;el.style.zIndex='';el.style.opacity='';
     emit('gallery_move_item',{galleryId:galPageGallery.id,itemId:item.id,x:item.x,y:item.y});
-  };
-  el.addEventListener('mousedown',onDown);el.addEventListener('touchstart',onDown,{passive:false});
-  document.addEventListener('mousemove',onMove);document.addEventListener('touchmove',onMove,{passive:false});
-  document.addEventListener('mouseup',onUp);document.addEventListener('touchend',onUp);
+  });
 }
 
 function closeGalPage(){

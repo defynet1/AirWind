@@ -122,6 +122,9 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;o
 .reply-strip.on{display:flex}
 .reply-strip-text{flex:1;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reply-strip-close{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:0 2px}
+.msg-reply{padding:6px 10px;margin-bottom:4px;border-left:3px solid var(--ac);border-radius:4px;background:rgba(99,102,241,.08);cursor:pointer;max-width:100%;overflow:hidden}
+.msg-reply-name{font-size:11px;color:var(--ac);font-weight:600}
+.msg-reply-text{font-size:12px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
 .edit-strip{display:none;align-items:center;gap:8px;padding:6px 10px;background:rgba(91,140,255,.08);border-radius:8px;margin-bottom:8px;border-left:3px solid var(--yellow)}
 .edit-strip.on{display:flex}
 .edit-strip-text{flex:1;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1519,6 +1522,24 @@ function appendMsg(m){
   area.scrollTop=area.scrollHeight;
 }
 
+function replyBlock(replyId){
+  const msgs=S.msgs[openChatId]||[];
+  const orig=msgs.find(x=>x.id===replyId);
+  if(!orig) return '';
+  const name=uName(orig.senderId);
+  const txt=orig.sticker?'Стикер':orig.media?'Медиа':orig.text||'';
+  return `<div class="msg-reply" onclick="scrollToMsg('${replyId}')">
+    <div class="msg-reply-name">${esc(name)}</div>
+    <div class="msg-reply-text">${esc(txt)}</div>
+  </div>`;
+}
+function scrollToMsg(id){
+  const el=document.getElementById('m_'+id);
+  if(!el)return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.style.background='rgba(99,102,241,.15)';
+  setTimeout(()=>el.style.background='',1500);
+}
 function bubbleHtml(m,isGroup){
   if(m.senderId==='__system__'){
     return `<div class="dchip"><span>${esc(m.text)}</span></div>`;
@@ -1556,6 +1577,7 @@ function bubbleHtml(m,isGroup){
     ${actions}
     <div class="mb${isSticker?' sticker':''}${isMedia?' media-msg':''}">
       ${senderRow}
+      ${m.replyTo?replyBlock(m.replyTo):''}
       ${mbody}
       <div class="msg-reactions" id="mr_${m.id}">${reactionBadgesHtml(m.reactions||{},'msg',m.id)}</div>
       <div class="mfooter">
@@ -1585,7 +1607,9 @@ function sendMsg(){
     emit('edit_message',{msgId:editMsgId,text});
     clearEdit();
   } else {
-    emit('send_message',{chatId:openChatId,text});
+    const payload={chatId:openChatId,text};
+    if(replyToId) payload.replyTo=replyToId;
+    emit('send_message',payload);
     clearReply();
   }
 }

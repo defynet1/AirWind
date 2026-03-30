@@ -71,6 +71,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_bgs TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sticker TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to TEXT DEFAULT ''`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS posts (
     id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
@@ -266,12 +267,13 @@ function toMsg(m) {
     readBy: m.read_by ? m.read_by.split(',') : [m.sender_id],
     sticker: m.sticker || '',
     media: m.media || '',
+    replyTo: m.reply_to || '',
     reactions: {} };
 }
-async function insertMessage(chatId, senderId, text, sticker = '', media = '') {
+async function insertMessage(chatId, senderId, text, sticker = '', media = '', replyTo = '') {
   const id = newId(), ts = Date.now();
-  await dbRun(`INSERT INTO messages(id,chat_id,sender_id,text,ts,sticker,media) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-    [id, chatId, senderId, text, ts, sticker, media]);
+  await dbRun(`INSERT INTO messages(id,chat_id,sender_id,text,ts,sticker,media,reply_to) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [id, chatId, senderId, text, ts, sticker, media, replyTo]);
   await dbRun(`INSERT INTO read_receipts(msg_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [id, senderId]);
   return getMessageById(id);
 }
@@ -588,11 +590,11 @@ wss.on('connection', ws => {
 
     } else if (type === 'send_message') {
       if (!inf) return;
-      const { chatId, text, sticker, media } = payload;
+      const { chatId, text, sticker, media, replyTo } = payload;
       if (!text?.trim() && !sticker && !media) return;
       const members = await getChatMembers(chatId);
       if (chatId!=='__global__' && !members.includes(inf.userId)) return;
-      const msg = await insertMessage(chatId, inf.userId, text?.trim()||'', sticker||'', media||'');
+      const msg = await insertMessage(chatId, inf.userId, text?.trim()||'', sticker||'', media||'', replyTo||'');
       await bcastChat(chatId, {type:'new_message',payload:{msg}});
       if (typing[chatId]) { typing[chatId].delete(inf.userId); await bcastChat(chatId,{type:'typing',payload:{chatId,userIds:[...typing[chatId]]}}); }
 

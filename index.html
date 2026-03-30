@@ -1080,13 +1080,13 @@ function handle({type,payload}){
       document.getElementById('app').classList.add('on');
       updateCoins(me.coins||0);
       applyBg(me.chatBg||'');
-      renderList(); openChat('__global__'); break;
+      renderList(); openChat('__global__'); loadGalleries(); break;
 
     case 'error': showErr(payload.msg); break;
 
     case 'users':
       payload.users.forEach(u=>S.users[u.id]=u);
-      renderList(); break;
+      renderList(); if(galList.length) renderGalStrip(); break;
 
     case 'user_joined':
     case 'profile_updated':

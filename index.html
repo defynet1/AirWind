@@ -1070,7 +1070,7 @@ function connect(){
   ws.onerror=()=>{};
   ws.onmessage=e=>{let p;try{p=JSON.parse(e.data)}catch{return}handle(p)};
 }
-function emit(type,payload){ws&&ws.readyState===1&&ws.send(JSON.stringify({type,payload}))}
+function emit(type,payload){if(!ws||ws.readyState!==1){console.warn('emit failed: ws not ready',type);return;}ws.send(JSON.stringify({type,payload}));}
 
 function handle({type,payload}){
   switch(type){
@@ -3543,9 +3543,13 @@ async function galPickBg(inp){
 }
 
 function submitGalCreate(){
-  const name=(document.getElementById('gc-name')?.value||'').trim()||'Моя галерея';
-  emit('gallery_create',{name,bg:galCreateBg});
-  const el=document.getElementById('galcreate');if(el)el.remove();
+  try{
+    const nameEl=document.getElementById('gc-name');
+    const name=(nameEl?.value||'').trim()||'Моя галерея';
+    console.log('submitGalCreate',name,galCreateBg);
+    emit('gallery_create',{name:name,bg:galCreateBg});
+    const el=document.getElementById('galcreate');if(el)el.remove();
+  }catch(e){console.error('submitGalCreate error:',e);alert('Ошибка: '+e.message);}
 }
 
 // ── Gallery page (fullscreen view) ──

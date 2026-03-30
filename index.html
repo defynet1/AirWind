@@ -3519,21 +3519,26 @@ function openGalCreate(){
   document.body.appendChild(el);
 }
 
-function galPickBg(inp){
+async function uploadFile(file){
+  const resp=await fetch('/upload',{method:'POST',headers:{'Content-Type':file.type,'X-Filename':encodeURIComponent(file.name)},body:file});
+  if(!resp.ok) throw new Error(await resp.text());
+  const {url}=await resp.json();
+  return url;
+}
+
+async function galPickBg(inp){
   const file=inp.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    galCreateBg=e.target.result;
+  try{
+    const url=await uploadFile(file);
+    galCreateBg=url;
     const prev=document.getElementById('gc-preview');
-    if(prev){prev.style.backgroundImage=`url(${galCreateBg})`;prev.classList.add('has-bg');prev.querySelector('span').textContent='';}
-    // Also for editing existing gallery
+    if(prev){prev.style.backgroundImage=`url(${url})`;prev.classList.add('has-bg');prev.querySelector('span').textContent='';}
     if(galPageUserId===me?.id&&galPageGallery){
-      emit('gallery_update',{bg:galCreateBg});
+      emit('gallery_update',{bg:url});
       const canvas=document.querySelector('.galpage');
-      if(canvas) canvas.style.backgroundImage=`url(${galCreateBg})`;
+      if(canvas) canvas.style.backgroundImage=`url(${url})`;
     }
-  };
-  reader.readAsDataURL(file);
+  }catch(e){alert('Ошибка загрузки: '+e.message);}
   inp.value='';
 }
 
@@ -3653,16 +3658,13 @@ function closeGalPage(){
 }
 
 // ── Add photo to gallery ──
-function galAddPhoto(inp){
+async function galAddPhoto(inp){
   const file=inp.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const data=e.target.result;
-    const canvas=document.getElementById('gp-canvas');
+  try{
+    const url=await uploadFile(file);
     const x=Math.random()*200+20, y=Math.random()*200+20;
-    emit('gallery_add_item',{kind:'post',data,x,y,w:220,h:220});
-  };
-  reader.readAsDataURL(file);
+    emit('gallery_add_item',{kind:'post',data:url,x,y,w:220,h:220});
+  }catch(e){alert('Ошибка загрузки: '+e.message);}
   inp.value='';
 }
 
@@ -3704,10 +3706,16 @@ function initGalDraw(c){
 
 function galSetDrawClr(clr,el){galDrawColor=clr;document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
 
-function galSaveDraw(){
+async function galSaveDraw(){
   const c=document.getElementById('gp-draw-canvas');
-  emit('gallery_update',{drawData:c.toDataURL('image/png')});
-  alert('Рисунок сохранён');
+  c.toBlob(async blob=>{
+    try{
+      const file=new File([blob],'drawing.png',{type:'image/png'});
+      const url=await uploadFile(file);
+      emit('gallery_update',{drawData:url});
+      alert('Рисунок сохранён');
+    }catch(e){alert('Ошибка: '+e.message);}
+  },'image/png');
 }
 
 function galClearDraw(){

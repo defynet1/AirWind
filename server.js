@@ -1127,9 +1127,9 @@ wss.on('connection', ws => {
       if (!inf) return;
       const admin = await getUserById(inf.userId);
       if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
-      const chats = db.exec(`SELECT c.id, c.name, c.is_group, (SELECT COUNT(*) FROM messages WHERE chat_id=c.id) as msg_count FROM chats c ORDER BY c.name`);
-      const rows = chats[0] ? chats[0].values.map(r => ({id:r[0], name:r[1], isGroup:!!r[2], msgCount:r[3]})) : [];
-      send(ws,{type:'admin_chats',payload:{chats:rows}});
+      const rows = await dbAll(`SELECT c.id, c.name, c.is_group, (SELECT COUNT(*) FROM messages WHERE chat_id=c.id) as msg_count FROM chats c ORDER BY c.name`);
+      const chats = rows.map(r => ({id:r.id, name:r.name, isGroup:!!r.is_group, msgCount:Number(r.msg_count)}));
+      send(ws,{type:'admin_chats',payload:{chats}});
 
     } else if (type === 'send_gift') {
       if (!inf) return;

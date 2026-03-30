@@ -385,8 +385,39 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .upc-gift img{width:28px;height:28px;object-fit:contain}
 .upc-gift-cnt{font-size:12px;font-weight:600;color:var(--tx2)}
 /* User Profile Card */
-#upc .md{padding:0;overflow:hidden;width:380px;border-radius:18px}
-.upc-banner{height:130px;position:relative;background:linear-gradient(135deg,var(--ac),var(--ac2));overflow:hidden}
+#upc .md{padding:0;overflow:hidden;width:400px;max-height:85vh;border-radius:18px;display:flex;flex-direction:column}
+.upc-header{position:relative;padding:16px 16px 0}
+.upc-header-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.upc-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;background-size:cover;background-position:center;flex-shrink:0;overflow:hidden;cursor:pointer}
+.upc-info{flex:1;min-width:0}
+.upc-name{font-size:16px;font-weight:600;letter-spacing:-.3px;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upc-username{font-size:12px;color:var(--tx2);margin-top:1px}
+.upc-status{font-size:12px;color:var(--tx3);margin-top:2px;font-style:italic}
+.upc-online{font-size:11px;font-weight:500}
+.upc-online.on{color:var(--green)} .upc-online.off{color:var(--tx3)}
+.upc-stats{display:flex;gap:16px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.upc-stat{text-align:center}
+.upc-stat-val{font-size:14px;font-weight:600;color:var(--tx)}
+.upc-stat-label{font-size:10px;color:var(--tx3);margin-top:1px}
+.upc-actions{display:flex;gap:8px;padding:10px 0;justify-content:center}
+.upc-actions .mbtn{flex:1;max-width:160px;font-size:12px;padding:7px 12px}
+/* Gallery */
+.upc-gallery{flex:1;overflow-y:auto;padding:0 16px 16px}
+.upc-gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;border-radius:8px;overflow:hidden}
+.upc-gallery-item{aspect-ratio:1;overflow:hidden;cursor:pointer;position:relative;background:#1a1b23}
+.upc-gallery-item img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s}
+.upc-gallery-item:hover img{transform:scale(1.05)}
+.upc-gallery-empty{text-align:center;color:var(--tx3);font-size:13px;padding:32px 0}
+.upc-gallery-add{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:rgba(99,102,241,.08);border:2px dashed rgba(99,102,241,.25);cursor:pointer;font-size:28px;color:var(--ac);transition:.2s;border-radius:0}
+.upc-gallery-add:hover{background:rgba(99,102,241,.15)}
+/* Gallery fullscreen viewer */
+.gal-viewer{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(20px);animation:fadeIn .15s}
+.gal-viewer img{max-width:90%;max-height:85vh;object-fit:contain;border-radius:8px}
+.gal-viewer .gv-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:20px;width:40px;height:40px;border-radius:50%;cursor:pointer}
+.gal-viewer .gv-cap{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:14px;background:rgba(0,0,0,.6);padding:6px 16px;border-radius:20px;max-width:80%;text-align:center}
+.gal-viewer .gv-del{position:absolute;top:16px;left:16px;background:rgba(239,68,68,.25);border:1px solid rgba(239,68,68,.4);color:#ef4444;font-size:13px;padding:6px 14px;border-radius:20px;cursor:pointer}
+/* Banner draw tools (kept) */
+.upc-banner{height:130px;position:relative;background:linear-gradient(135deg,var(--ac),var(--ac2));overflow:hidden;display:none}
 .upc-banner canvas{width:100%;height:100%;display:block}
 .upc-banner.drawing{cursor:crosshair}
 .upc-draw-tools{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:5px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border-radius:20px;padding:4px 8px;z-index:3;align-items:center}
@@ -396,20 +427,6 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .upc-size{width:50px;accent-color:var(--ac);height:14px}
 .upc-dtbtn{background:none;border:none;color:#fff;font-size:14px;cursor:pointer;padding:2px 6px;border-radius:6px;transition:.15s}
 .upc-dtbtn:hover{background:rgba(255,255,255,.15)}
-.upc-avwrap{position:relative;display:flex;justify-content:center;margin-top:-46px;z-index:2}
-.upc-av{width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;background-size:cover;background-position:center;flex-shrink:0;position:relative;overflow:hidden}
-.upc-body{padding:0 24px 24px;text-align:center}
-.upc-name{font-size:18px;font-weight:600;margin-top:10px;letter-spacing:-.3px;display:flex;align-items:center;justify-content:center;gap:4px}
-.upc-username{font-size:13px;color:var(--tx2);margin-top:2px}
-.upc-status{font-size:13px;color:var(--tx3);margin-top:6px;font-style:italic}
-.upc-online{font-size:12px;margin-top:6px;font-weight:500}
-.upc-online.on{color:var(--green)} .upc-online.off{color:var(--tx3)}
-.upc-stats{display:flex;justify-content:center;gap:24px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06)}
-.upc-stat{text-align:center}
-.upc-stat-val{font-size:16px;font-weight:600;color:var(--tx)}
-.upc-stat-label{font-size:11px;color:var(--tx3);margin-top:1px}
-.upc-actions{display:flex;gap:8px;margin-top:16px;justify-content:center}
-.upc-actions .mbtn{flex:1;max-width:160px}
 /* Settings */
 #stm .md{max-width:420px}
 .set-section{margin-bottom:18px}
@@ -469,8 +486,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   .stabs{bottom:0;left:0;right:0;transform:none;border-radius:0;padding:8px 0;justify-content:space-around;gap:0}
   .stab{width:52px;height:44px;font-size:22px;border-radius:50%}
   .mo .md{width:100%;max-width:100%;border-radius:16px 16px 0 0;margin-top:auto;max-height:90vh;overflow-y:auto}
-  #upc .md{border-radius:16px 16px 0 0}
-  .upc-banner{height:110px}
+  #upc .md{border-radius:16px 16px 0 0;width:100%}
   .feed{padding:14px 10px 60px;max-width:100%}
   .feed-hdr{padding:14px 10px 4px;max-width:100%}
   .post-card{border-radius:14px}
@@ -817,8 +833,8 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 <!-- User Profile Card -->
 <div class="mo" id="upc">
   <div class="md">
-    <button class="mclose" onclick="CM('upc')" style="position:absolute;right:12px;top:12px;z-index:5;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.5)">✕</button>
-    <div class="upc-banner" id="upc-banner">
+    <button class="mclose" onclick="CM('upc')" style="position:absolute;right:12px;top:12px;z-index:5">✕</button>
+    <div class="upc-banner" id="upc-banner" style="display:none">
       <canvas id="upc-canvas"></canvas>
       <button class="upc-dtbtn" id="upc-edit-banner" style="display:none;position:absolute;top:6px;right:6px;z-index:3;background:rgba(0,0,0,.45);border-radius:8px;padding:4px 10px;font-size:12px" onclick="startBannerDraw()">🎨 Рисовать</button>
       <div class="upc-draw-tools hidden" id="upc-draw-tools">
@@ -835,20 +851,28 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
         <button class="upc-dtbtn" onclick="cancelBannerDraw()">✕</button>
       </div>
     </div>
-    <div class="upc-avwrap"><div class="upc-av" id="upc-av"></div></div>
-    <div class="upc-body">
-      <div class="upc-name" id="upc-name"></div>
-      <div class="upc-username" id="upc-uname"></div>
-      <div class="upc-status" id="upc-status"></div>
-      <div class="upc-online" id="upc-online"></div>
+    <div class="upc-header">
+      <div class="upc-header-top">
+        <div class="upc-av" id="upc-av"></div>
+        <div class="upc-info">
+          <div class="upc-name" id="upc-name"></div>
+          <div class="upc-username" id="upc-uname"></div>
+          <div class="upc-status" id="upc-status"></div>
+          <div class="upc-online" id="upc-online"></div>
+        </div>
+      </div>
       <div class="upc-stats">
         <div class="upc-stat"><div class="upc-stat-val" id="upc-coins">0</div><div class="upc-stat-label">Монеты</div></div>
-        <div class="upc-stat"><div class="upc-stat-val" id="upc-frame">—</div><div class="upc-stat-label">Рамка</div></div>
+        <div class="upc-stat"><div class="upc-stat-val" id="upc-gal-count">0</div><div class="upc-stat-label">Фото</div></div>
         <div class="upc-stat"><div class="upc-stat-val" id="upc-badge">—</div><div class="upc-stat-label">Статус</div></div>
       </div>
       <div class="upc-gifts" id="upc-gifts" style="display:none"></div>
       <div class="upc-actions" id="upc-actions"></div>
     </div>
+    <div class="upc-gallery" id="upc-gallery">
+      <div class="upc-gallery-grid" id="upc-gallery-grid"></div>
+    </div>
+    <input type="file" id="gal-upload" accept="image/*" style="display:none" onchange="galleryUpload(this)">
   </div>
 </div>
 
@@ -1320,6 +1344,16 @@ function handle({type,payload}){
       S.msgs[payload.chatId]=[];
       if(openChatId===payload.chatId) renderMsgs(openChatId);
       renderList();
+      break;
+    case 'gallery_photos':
+      if(payload.userId===galleryViewUserId) renderGallery(payload.photos);
+      break;
+    case 'gallery_uploaded':
+      if(galleryViewUserId===me?.id){galleryPhotos.unshift(payload.photo);renderGallery(galleryPhotos);}
+      break;
+    case 'gallery_deleted':
+      galleryPhotos=galleryPhotos.filter(p=>p.id!==payload.photoId);
+      if(galleryViewUserId===me?.id) renderGallery(galleryPhotos);
       break;
     case 'gift_sent':{
       const gi=GIFTS.find(x=>x.id===payload.giftId);
@@ -2081,17 +2115,17 @@ function cancelBannerDraw(){
   }
 }
 
+let galleryViewUserId=null;
+let galleryPhotos=[];
 function viewUserProfile(userId){
   bannerViewUserId=userId;
+  galleryViewUserId=userId;
   cancelBannerDraw();
   const u=S.users[userId];
   if(!u)return;
-  const canvas=document.getElementById('upc-canvas');
-  requestAnimationFrame(()=>loadBannerForUser(canvas,u));
-  document.getElementById('upc-edit-banner').style.display=(userId===me?.id)?'':'none';
   const av=document.getElementById('upc-av');
   av.textContent=avInner(u.displayName,u.avatarUrl);
-  av.style.cssText=`width:92px;height:92px;border-radius:50%;border:4px solid rgba(15,17,22,.92);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};background-size:cover;background-position:center`;
+  av.style.cssText=`width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;${avStyle(u.avatarColor,u.avatarUrl,u.frame||'')};background-size:cover;background-position:center`;
   document.getElementById('upc-name').innerHTML=esc(u.displayName)+verifiedHtml(u)+badgeHtml(u.statusBadge||'');
   document.getElementById('upc-uname').textContent='@'+u.username;
   document.getElementById('upc-status').textContent=u.status||'';
@@ -2101,8 +2135,6 @@ function viewUserProfile(userId){
   onEl.textContent=online?'В сети':'Не в сети';
   onEl.className='upc-online '+(online?'on':'off');
   document.getElementById('upc-coins').textContent=u.coins>=1e6?(u.coins/1e6).toFixed(u.coins%1e6===0?0:1)+'М':u.coins>=1e3?(u.coins/1e3).toFixed(u.coins%1e3===0?0:1)+'К':u.coins||0;
-  const fr=FRAMES.find(f=>f.id===u.frame);
-  document.getElementById('upc-frame').textContent=fr?fr.name:'—';
   const bd=BADGES.find(b=>b.id===u.statusBadge);
   document.getElementById('upc-badge').innerHTML=bd?`<img src="${svgUrl(bd.svg)}" style="width:18px;height:18px;vertical-align:middle"> ${bd.name}`:'—';
   const acts=document.getElementById('upc-actions');
@@ -2115,7 +2147,58 @@ function viewUserProfile(userId){
   document.getElementById('upc-gifts').style.display='none';
   document.getElementById('upc-gifts').innerHTML='';
   loadUserGifts(userId);
+  // Gallery
+  document.getElementById('upc-gallery-grid').innerHTML='<div class="upc-gallery-empty">Загрузка...</div>';
+  document.getElementById('upc-gal-count').textContent='...';
+  emit('gallery_get',{userId});
   OM('upc');
+}
+function renderGallery(photos){
+  galleryPhotos=photos;
+  document.getElementById('upc-gal-count').textContent=photos.length;
+  const grid=document.getElementById('upc-gallery-grid');
+  const isOwner=galleryViewUserId===me?.id;
+  let html='';
+  if(isOwner) html+=`<div class="upc-gallery-add" onclick="document.getElementById('gal-upload').click()">+</div>`;
+  html+=photos.map(p=>`<div class="upc-gallery-item" onclick="openGalleryViewer('${p.id}')"><img src="${p.data}" loading="lazy"></div>`).join('');
+  if(!photos.length&&!isOwner) html='<div class="upc-gallery-empty">Нет фото</div>';
+  grid.innerHTML=html;
+}
+function openGalleryViewer(photoId){
+  const p=galleryPhotos.find(x=>x.id===photoId);
+  if(!p)return;
+  const isOwner=p.userId===me?.id;
+  const el=document.createElement('div');
+  el.className='gal-viewer';
+  el.onclick=e=>{if(e.target===el)el.remove();};
+  el.innerHTML=`<button class="gv-close" onclick="this.parentElement.remove()">✕</button>
+    ${isOwner?`<button class="gv-del" onclick="galleryDelete('${p.id}');this.parentElement.remove()">Удалить</button>`:''}
+    <img src="${p.data}">
+    ${p.caption?`<div class="gv-cap">${esc(p.caption)}</div>`:''}`;
+  document.body.appendChild(el);
+}
+function galleryUpload(inp){
+  const file=inp.files[0];if(!file)return;
+  if(file.size>5*1024*1024){alert('Максимум 5 МБ');inp.value='';return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=800;
+      let w=img.width,h=img.height;
+      if(w>max||h>max){const s=Math.min(max/w,max/h);w*=s;h*=s;}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      const data=c.toDataURL('image/jpeg',0.85);
+      emit('gallery_upload',{data});
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  inp.value='';
+}
+function galleryDelete(photoId){
+  emit('gallery_delete',{photoId});
 }
 function startChatWith(uid){
   const ex=Object.values(S.chats).find(c=>!c.isGroup&&c.members?.includes(me.id)&&c.members?.includes(uid));

@@ -121,6 +121,12 @@ async function initDB() {
     gift_id TEXT NOT NULL, ts BIGINT NOT NULL
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS gallery_photos (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL,
+    data TEXT NOT NULL, caption TEXT DEFAULT '',
+    ts BIGINT NOT NULL
+  )`);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS sticker_packs (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL,
     cover TEXT DEFAULT '', created_at BIGINT DEFAULT 0
@@ -1132,6 +1138,29 @@ wss.on('connection', ws => {
       const rows = await dbAll(`SELECT c.id, c.name, c.is_group, (SELECT COUNT(*) FROM messages WHERE chat_id=c.id) as msg_count FROM chats c ORDER BY c.name`);
       const chats = rows.map(r => ({id:r.id, name:r.name, isGroup:!!r.is_group, msgCount:Number(r.msg_count)}));
       send(ws,{type:'admin_chats',payload:{chats}});
+
+    } else if (type === 'gallery_upload') {
+      if (!inf) return;
+      const { data, caption } = payload;
+      if (!data) return;
+      const id = newId(), ts = Date.now();
+      await dbRun(`INSERT INTO gallery_photos(id,user_id,data,caption,ts) VALUES($1,$2,$3,$4,$5)`,
+        [id, inf.userId, data, caption||'', ts]);
+      send(ws, {type:'gallery_uploaded', payload:{photo:{id,userId:inf.userId,data,caption:caption||'',ts}}});
+
+    } else if (type === 'gallery_delete') {
+      if (!inf) return;
+      const { photoId } = payload;
+      const photo = await dbGet(`SELECT * FROM gallery_photos WHERE id=$1`, [photoId]);
+      if (!photo || photo.user_id !== inf.userId) return;
+      await dbRun(`DELETE FROM gallery_photos WHERE id=$1`, [photoId]);
+      send(ws, {type:'gallery_deleted', payload:{photoId}});
+
+    } else if (type === 'gallery_get') {
+      const { userId } = payload;
+      if (!userId) return;
+      const photos = await dbAll(`SELECT * FROM gallery_photos WHERE user_id=$1 ORDER BY ts DESC`, [userId]);
+      send(ws, {type:'gallery_photos', payload:{userId, photos: photos.map(p=>({id:p.id,userId:p.user_id,data:p.data,caption:p.caption||'',ts:Number(p.ts)}))}});
 
     } else if (type === 'send_gift') {
       if (!inf) return;

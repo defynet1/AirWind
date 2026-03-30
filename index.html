@@ -580,8 +580,12 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
       </div>
       <div id="clist"></div>
     </div>
-    <div id="feed-sidebar" class="hidden">
-      <div style="padding:16px 14px 8px;font-size:12px;color:var(--tx3)">Переключитесь на ленту →</div>
+    <div id="feed-sidebar" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div style="padding:9px 13px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;color:var(--tx3);font-weight:500;text-transform:uppercase;letter-spacing:.4px">Галереи</span>
+        <button class="ibtn" title="Создать галерею" onclick="openGalCreate()" style="font-size:16px;width:28px;height:28px">＋</button>
+      </div>
+      <div id="gal-sidebar-list" style="flex:1;overflow-y:auto"></div>
     </div>
     <div id="channels-panel" class="hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
       <div style="padding:9px 13px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
@@ -3451,22 +3455,42 @@ function loadGalleries(){emit('galleries_list',{});}
 
 function renderGalStrip(){
   const strip=document.getElementById('gal-strip');
-  if(!strip)return;
+  const sidebar=document.getElementById('gal-sidebar-list');
   const hasOwn=galList.some(g=>g.userId===me?.id);
-  let html='';
-  if(!hasOwn){
-    html+=`<div class="gal-chip gal-chip-add" onclick="openGalCreate()">+ Создать галерею</div>`;
+  // Strip (в ленте)
+  if(strip){
+    let html='';
+    if(!hasOwn) html+=`<div class="gal-chip gal-chip-add" onclick="openGalCreate()">+ Создать галерею</div>`;
+    galList.forEach(g=>{
+      const u=S.users[g.userId];if(!u)return;
+      const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
+      const inner=u.avatarUrl?'':initials(u.displayName);
+      html+=`<div class="gal-chip" onclick="openGalPage('${g.userId}')">
+        <div class="gal-chip-av" style="${avSt}">${inner}</div>
+        <div class="gal-chip-name">${esc(g.name||u.displayName)}</div>
+      </div>`;
+    });
+    strip.innerHTML=html;
   }
-  galList.forEach(g=>{
-    const u=S.users[g.userId];if(!u)return;
-    const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
-    const inner=u.avatarUrl?'':initials(u.displayName);
-    html+=`<div class="gal-chip" onclick="openGalPage('${g.userId}')">
-      <div class="gal-chip-av" style="${avSt}">${inner}</div>
-      <div class="gal-chip-name">${esc(g.name||u.displayName)}</div>
-    </div>`;
-  });
-  strip.innerHTML=html;
+  // Sidebar (левая панель)
+  if(sidebar){
+    let shtml='';
+    galList.forEach(g=>{
+      const u=S.users[g.userId];if(!u)return;
+      const avSt=u.avatarUrl?`background-image:url(${u.avatarUrl})`:`background:${u.avatarColor||'#6366f1'}`;
+      const inner=u.avatarUrl?'':initials(u.displayName);
+      const isMy=g.userId===me?.id;
+      shtml+=`<div class="cr" onclick="openGalPage('${g.userId}')" style="cursor:pointer">
+        <div class="av" style="${avSt};width:42px;height:42px;font-size:15px;border-radius:12px">${inner}</div>
+        <div class="ci">
+          <div class="cn">${esc(g.name||u.displayName)}${isMy?' <span style="color:var(--tx3);font-size:11px">(моя)</span>':''}</div>
+          <div class="clm" style="font-size:11px;color:var(--tx3)">@${esc(u.username||'')}</div>
+        </div>
+      </div>`;
+    });
+    if(!galList.length) shtml=`<div style="padding:20px;text-align:center;color:var(--tx3);font-size:13px">Нет галерей<br><span style="font-size:11px">Нажмите ＋ чтобы создать</span></div>`;
+    sidebar.innerHTML=shtml;
+  }
 }
 
 // ── Create gallery (fullscreen) ──

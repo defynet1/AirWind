@@ -3664,6 +3664,7 @@ function showGalPage(payload){
     <button class="gt-btn" onclick="galAddText()">✏️ Текст</button>
     <button class="gt-btn" id="gp-draw-btn" onclick="galToggleDraw()">🎨 Рисовать</button>
     <button class="gt-btn" onclick="document.getElementById('gal-bg-input').click()">🖼 Фон</button>
+    <button class="gt-btn" onclick="openPollCreate('gallery',galPageGallery.id)">📊 Опрос</button>
     <button class="gt-btn" onclick="openGalFxShop()">✨ Эффекты</button>
     <button class="gt-btn" style="margin-left:auto;background:rgba(239,68,68,.15);color:#ef4444" onclick="galDeleteGallery()">🗑️</button>
     <div class="galpage-draw-tools" id="gp-draw-tools" style="display:none">
@@ -3687,6 +3688,7 @@ function showGalPage(payload){
   initPinchZoom();
   renderGalPageItems();
   startGalEffect();
+  loadPolls('gallery',galPageGallery.id);
 }
 
 function initPinchZoom(){
@@ -4069,7 +4071,6 @@ function renderPollsInContext(context,contextId){
     }
     container.innerHTML=polls.map(pollCardHtml).join('');
   } else if((context==='chat'||context==='group')&&openChatId===contextId){
-    // Опросы в чате отображаются как сообщения (вставим в msgs)
     let container=document.getElementById('chat-polls-'+contextId);
     if(!container){
       const msgs=document.getElementById('msgs');
@@ -4077,6 +4078,16 @@ function renderPollsInContext(context,contextId){
       container=document.createElement('div');container.id='chat-polls-'+contextId;
       msgs.appendChild(container);
       msgs.scrollTop=msgs.scrollHeight;
+    }
+    container.innerHTML=polls.map(pollCardHtml).join('');
+  } else if(context==='gallery'&&galPageGallery&&galPageGallery.id===contextId){
+    let container=document.getElementById('gal-polls');
+    if(!container){
+      const field=document.getElementById('gp-field');
+      if(!field)return;
+      container=document.createElement('div');container.id='gal-polls';
+      container.style.cssText='position:absolute;bottom:10px;left:10px;right:10px;z-index:4;display:flex;flex-direction:column;gap:8px;max-width:360px';
+      field.appendChild(container);
     }
     container.innerHTML=polls.map(pollCardHtml).join('');
   }

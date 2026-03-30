@@ -32,7 +32,8 @@ async function initDB() {
   // Проверяем соединение — если упадёт, сервер не запустится
   await pool.query('SELECT 1');
   console.log('🔌 Соединение с PostgreSQL установлено');
-
+  console.log('📦 Создание таблиц...');
+  try {
   await pool.query(`CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL,
     display_name TEXT NOT NULL, password TEXT NOT NULL,
@@ -123,21 +124,18 @@ async function initDB() {
 
   await pool.query(`CREATE TABLE IF NOT EXISTS galleries (
     id TEXT PRIMARY KEY, user_id TEXT NOT NULL UNIQUE,
-    name TEXT DEFAULT 'Моя галерея',
-    bg TEXT DEFAULT '',
-    draw_data TEXT DEFAULT '',
-    created_at BIGINT DEFAULT 0
+    name TEXT DEFAULT '', bg TEXT DEFAULT '',
+    draw_data TEXT DEFAULT '', created_at BIGINT DEFAULT 0
   )`);
+  await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS name TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS bg TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE galleries ADD COLUMN IF NOT EXISTS draw_data TEXT DEFAULT ''`);
   await pool.query(`CREATE TABLE IF NOT EXISTS gallery_items (
     id TEXT PRIMARY KEY, gallery_id TEXT NOT NULL,
-    kind TEXT DEFAULT 'post',
-    data TEXT DEFAULT '',
-    caption TEXT DEFAULT '',
-    x REAL DEFAULT 0, y REAL DEFAULT 0,
-    w REAL DEFAULT 200, h REAL DEFAULT 200,
-    frame TEXT DEFAULT '',
-    font_size INTEGER DEFAULT 18,
-    color TEXT DEFAULT '#ffffff',
+    kind TEXT DEFAULT 'post', data TEXT DEFAULT '',
+    caption TEXT DEFAULT '', x REAL DEFAULT 0, y REAL DEFAULT 0,
+    w REAL DEFAULT 200, h REAL DEFAULT 200, frame TEXT DEFAULT '',
+    font_size INTEGER DEFAULT 18, color TEXT DEFAULT '#ffffff',
     ts BIGINT NOT NULL
   )`);
 
@@ -166,6 +164,7 @@ async function initDB() {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_read_receipts_msg ON read_receipts(msg_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_user_id)`);
   } catch(e) { console.warn('Index creation warning:', e.message); }
+  } catch(e) { console.error('❌ Ошибка создания таблиц:', e.message); process.exit(1); }
 
   const exists = await dbGet(`SELECT id FROM chats WHERE id='__global__'`);
   if (!exists) {

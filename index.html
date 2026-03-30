@@ -261,6 +261,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-canvas.editing{cursor:crosshair}
 .galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s}
 .galpage-item:active{cursor:grabbing;box-shadow:0 8px 30px rgba(0,0,0,.7)}
+.galpage-del-btn{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.9);border:none;color:#fff;font-size:12px;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .galpage-item img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
 .galpage-item.framed{border:3px solid var(--ac);box-shadow:0 0 0 1px rgba(99,102,241,.3),0 4px 20px rgba(0,0,0,.5)}
 .galpage-text{position:absolute;color:#fff;font-weight:600;text-shadow:0 2px 8px rgba(0,0,0,.7);cursor:grab;user-select:none;white-space:pre-wrap;padding:4px 8px;border-radius:6px}
@@ -3454,7 +3455,7 @@ function submitCreateChannel(){
 let galList=[];
 let galPageUserId=null, galPageGallery=null, galPageItems=null;
 let galCreateBg='';
-let galDrawMode=false, galDrawColor='#ffffff', galDrawSize=3;
+let galDrawMode=false, galDrawColor='#ffffff', galDrawSize=3, galDrawEraser=false;
 let galZoom=1;
 
 function loadGalleries(){emit('galleries_list',{});}
@@ -3590,15 +3591,21 @@ function showGalPage(payload){
     <button class="gt-btn" onclick="galAddText()">✏️ Текст</button>
     <button class="gt-btn" id="gp-draw-btn" onclick="galToggleDraw()">🎨 Рисовать</button>
     <button class="gt-btn" onclick="document.getElementById('gal-bg-input').click()">🖼 Фон</button>
+    <button class="gt-btn" style="margin-left:auto;background:rgba(239,68,68,.15);color:#ef4444" onclick="galDeleteGallery()">🗑️</button>
     <div class="galpage-draw-tools" id="gp-draw-tools" style="display:none">
       <div class="gd-clr on" style="background:#fff" onclick="galSetDrawClr('#ffffff',this)"></div>
       <div class="gd-clr" style="background:#ef4444" onclick="galSetDrawClr('#ef4444',this)"></div>
+      <div class="gd-clr" style="background:#ff8c00" onclick="galSetDrawClr('#ff8c00',this)"></div>
       <div class="gd-clr" style="background:#fbbf24" onclick="galSetDrawClr('#fbbf24',this)"></div>
       <div class="gd-clr" style="background:#22c55e" onclick="galSetDrawClr('#22c55e',this)"></div>
       <div class="gd-clr" style="background:#3b82f6" onclick="galSetDrawClr('#3b82f6',this)"></div>
-      <input type="range" min="1" max="20" value="3" style="width:60px;accent-color:var(--ac)" oninput="galDrawSize=this.value">
+      <div class="gd-clr" style="background:#a855f7" onclick="galSetDrawClr('#a855f7',this)"></div>
+      <div class="gd-clr" style="background:#ec4899" onclick="galSetDrawClr('#ec4899',this)"></div>
+      <div class="gd-clr" style="background:#000" onclick="galSetDrawClr('#000000',this)"></div>
+      <button class="gt-btn ${galDrawEraser?'active':''}" id="gp-eraser-btn" style="padding:4px 8px;font-size:13px" onclick="galToggleEraser()" title="Ластик">🧹</button>
+      <input type="range" min="1" max="40" value="3" style="width:70px;accent-color:var(--ac)" oninput="galDrawSize=this.value">
       <button class="gt-btn" style="padding:4px 8px;font-size:11px" onclick="galSaveDraw()">💾</button>
-      <button class="gt-btn" style="padding:4px 8px;font-size:11px" onclick="galClearDraw()">🗑️</button>
+      <button class="gt-btn" style="padding:4px 8px;font-size:11px" onclick="galClearDraw()">🗑️ Всё</button>
     </div>
   </div>`:''}`;
   document.body.appendChild(el);
@@ -3646,19 +3653,20 @@ function renderGalPageItems(){
       d.textContent=it.data;
       if(isOwner){
         makeDraggable(d,it);
-        d.addEventListener('dblclick',()=>{if(!confirm('Удалить текст?'))return;emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:it.id});});
+        const del=document.createElement('button');del.className='galpage-del-btn';del.textContent='✕';
+        del.onclick=e=>{e.stopPropagation();if(!confirm('Удалить текст?'))return;emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:it.id});};
+        d.appendChild(del);
       }
       canvas.appendChild(d);
     } else {
       const d=document.createElement('div');d.className='galpage-item'+(it.frame?' framed':'');d.id='gi_'+it.id;
       d.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px`;
-      d.innerHTML=`<img src="${it.data}">${it.caption?`<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;text-align:center">${esc(it.caption)}</div>`:''}`;
-      if(isOwner){
-        makeDraggable(d,it);
-        d.addEventListener('dblclick',()=>{if(!confirm('Удалить элемент?'))return;emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:it.id});});
-      } else {
-        d.addEventListener('click',()=>openImageFull(it.data));
-      }
+      let inner=`<img src="${it.data}">`;
+      if(it.caption) inner+=`<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;text-align:center">${esc(it.caption)}</div>`;
+      if(isOwner) inner+=`<button class="galpage-del-btn" onclick="event.stopPropagation();if(confirm('Удалить фото?'))emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:'${it.id}'})">✕</button>`;
+      d.innerHTML=inner;
+      if(isOwner) makeDraggable(d,it);
+      else d.addEventListener('click',()=>openImageFull(it.data));
       canvas.appendChild(d);
     }
   });
@@ -3752,11 +3760,17 @@ function initGalDraw(c){
   const ctx=c.getContext('2d');
   let drawing=false;
   c.onmousedown=c.ontouchstart=e=>{e.preventDefault();drawing=true;const t=e.touches?e.touches[0]:e;const r=c.getBoundingClientRect();ctx.beginPath();ctx.moveTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));};
-  c.onmousemove=c.ontouchmove=e=>{if(!drawing)return;e.preventDefault();const t=e.touches?e.touches[0]:e;const r=c.getBoundingClientRect();ctx.lineWidth=galDrawSize;ctx.strokeStyle=galDrawColor;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));ctx.stroke();};
-  c.onmouseup=c.ontouchend=()=>{drawing=false;};
+  c.onmousemove=c.ontouchmove=e=>{if(!drawing)return;e.preventDefault();const t=e.touches?e.touches[0]:e;const r=c.getBoundingClientRect();
+    ctx.lineWidth=galDrawSize;ctx.lineCap='round';ctx.lineJoin='round';
+    if(galDrawEraser){ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='rgba(0,0,0,1)';}
+    else{ctx.globalCompositeOperation='source-over';ctx.strokeStyle=galDrawColor;}
+    ctx.lineTo((t.clientX-r.left)*(c.width/r.width),(t.clientY-r.top)*(c.height/r.height));ctx.stroke();};
+  c.onmouseup=c.ontouchend=()=>{drawing=false;ctx.globalCompositeOperation='source-over';};
 }
 
-function galSetDrawClr(clr,el){galDrawColor=clr;document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));el.classList.add('on');}
+function galSetDrawClr(clr,el){galDrawColor=clr;galDrawEraser=false;document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));el.classList.add('on');const eb=document.getElementById('gp-eraser-btn');if(eb)eb.classList.remove('active');}
+function galToggleEraser(){galDrawEraser=!galDrawEraser;const eb=document.getElementById('gp-eraser-btn');if(eb)eb.classList.toggle('active',galDrawEraser);document.querySelectorAll('.gd-clr').forEach(e=>e.classList.remove('on'));}
+function galDeleteGallery(){if(!galPageGallery)return;if(!confirm('Удалить эту галерею? Все фото и элементы будут потеряны.'))return;emit('gallery_delete',{galleryId:galPageGallery.id});}
 
 async function galSaveDraw(){
   const c=document.getElementById('gp-draw-canvas');

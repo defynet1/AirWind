@@ -3198,7 +3198,7 @@ function postCardHtml(p){
     <div class="post-ph">
       <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
-      ${isMine?`<button onclick="deletePost('${p.id}')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px 6px;opacity:.5" title="Удалить пост">🗑</button>`:''}
+      ${isMine?`<button onclick="deletePost('${p.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-size:13px;padding:5px 10px;border-radius:8px;color:#ef4444" title="Удалить пост">🗑 Удалить</button>`:''}
     </div>
     <img class="post-img" src="${p.mediaData}" loading="lazy" onclick="openImageFull('${p.id}')">
     <div class="post-body">

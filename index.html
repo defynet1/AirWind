@@ -3843,6 +3843,7 @@ function showGalPage(payload){
     </div>
   </div>
   ${isOwner?`<div class="galpage-toolbar" id="gp-toolbar">
+    <button class="gt-btn" id="gp-select-btn" onclick="galToggleSelect()">🔲 Выделение</button>
     <button class="gt-btn" onclick="document.getElementById('gal-addphoto-input').click()">📷 Фото</button>
     <button class="gt-btn" onclick="galAddText()">✏️ Текст</button>
     <button class="gt-btn" id="gp-draw-btn" onclick="galToggleDraw()">🎨 Рисовать</button>
@@ -4166,6 +4167,14 @@ function fitFieldToBg(url){
     field.style.height=img.naturalHeight+'px';
   };
   img.src=url;
+}
+let galSelectMode=false;
+function galToggleSelect(){
+  galSelectMode=!galSelectMode;
+  const btn=document.getElementById('gp-select-btn');
+  if(btn) btn.classList.toggle('active',galSelectMode);
+  const cv=document.getElementById('gp-canvas');
+  if(cv) cv.style.cursor=galSelectMode?'crosshair':'';
 }
 function galDelItem(itemId){
   if(!galPageGallery)return;

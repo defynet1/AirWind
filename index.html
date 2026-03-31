@@ -920,6 +920,27 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Channel Profile Modal -->
+<div class="mo" id="chprof">
+  <div class="md" style="max-width:400px;padding:0;overflow:hidden;border-radius:18px">
+    <button class="mclose" onclick="CM('chprof')" style="position:absolute;right:12px;top:12px;z-index:5">✕</button>
+    <div id="chprof-banner" style="height:100px;background:linear-gradient(135deg,var(--ac),var(--ac2));display:flex;align-items:center;justify-content:center;position:relative">
+      <div id="chprof-av" style="width:64px;height:64px;border-radius:18px;font-size:26px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;border:3px solid rgba(15,17,22,.8);position:absolute;bottom:-28px"></div>
+    </div>
+    <div style="padding:40px 20px 20px;text-align:center">
+      <div id="chprof-name" style="font-size:17px;font-weight:600"></div>
+      <div id="chprof-desc" style="font-size:12px;color:var(--tx3);margin-top:4px"></div>
+      <div id="chprof-stats" style="display:flex;justify-content:center;gap:20px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)">
+        <div><div id="chprof-subs" style="font-size:16px;font-weight:600">0</div><div style="font-size:10px;color:var(--tx3)">Подписчиков</div></div>
+        <div><div id="chprof-posts" style="font-size:16px;font-weight:600">0</div><div style="font-size:10px;color:var(--tx3)">Постов</div></div>
+      </div>
+      <div id="chprof-owner" style="font-size:12px;color:var(--tx3);margin-top:10px"></div>
+      <div id="chprof-medals" style="margin-top:12px"></div>
+      <div id="chprof-actions" style="display:flex;gap:8px;margin-top:14px;justify-content:center"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Custom Medal Create Modal -->
 <div class="mo" id="cmdm">
   <div class="md" style="max-width:380px">
@@ -1524,7 +1545,9 @@ function handle({type,payload}){
     case 'custom_medal_deleted':
       alert('Медаль удалена');break;
     case 'custom_medals_list':
-      renderCustomMedalShop(payload.channelId,payload.medals);break;
+      renderCustomMedalShop(payload.channelId,payload.medals);
+      renderChannelProfileMedals(payload.channelId,payload.medals);
+      break;
     case 'gifts_refresh':
       if(me) loadUserGifts(me.id);break;
     // Polls
@@ -3485,7 +3508,8 @@ function renderChannelHeader(ch){
   const _hav=chanAvHtml(ch,44,ch.isOwner?'cursor:pointer':'');
   av.style.cssText=_hav.s;
   av.innerHTML=_hav.inner;
-  av.onclick=ch.isOwner?()=>openEditChannel(ch.id):null;
+  av.style.cursor='pointer';
+  av.onclick=()=>openChannelProfile(ch.id);
   document.getElementById('ch-hdr-name').textContent=ch.name;
   document.getElementById('ch-hdr-desc').textContent=
     (ch.description||'')+' · '+ch.memberCount+' подписчик'+memberSuffix(ch.memberCount);
@@ -4379,6 +4403,71 @@ function loadPolls(context,contextId){
 // ════════════════════════════════════
 let cmChannelId='', cmImgUrl='';
 let customMedalsCache={};
+
+function openChannelProfile(channelId){
+  const ch=S.channels[channelId];if(!ch)return;
+  const owner=S.users[ch.ownerId];
+  // Аватарка
+  const avEl=document.getElementById('chprof-av');
+  const _hav=chanAvHtml(ch,64,'');
+  avEl.style.cssText=`width:64px;height:64px;border-radius:18px;font-size:26px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;border:3px solid rgba(15,17,22,.8);position:absolute;bottom:-28px;${_hav.s}`;
+  avEl.innerHTML=_hav.inner;
+  // Баннер
+  const banner=document.getElementById('chprof-banner');
+  banner.style.background=ch.avatarColor?`linear-gradient(135deg,${ch.avatarColor},${ch.avatarColor}88)`:'linear-gradient(135deg,var(--ac),var(--ac2))';
+  // Инфо
+  document.getElementById('chprof-name').textContent=ch.name;
+  document.getElementById('chprof-desc').textContent=ch.description||'';
+  document.getElementById('chprof-subs').textContent=ch.memberCount||0;
+  const postCount=(S.chanPosts[channelId]||[]).length;
+  document.getElementById('chprof-posts').textContent=postCount;
+  document.getElementById('chprof-owner').innerHTML=owner?`Автор: <strong>${esc(owner.displayName)}</strong>`:'';
+  // Кнопки
+  const acts=document.getElementById('chprof-actions');
+  if(ch.isOwner){
+    acts.innerHTML=`<button class="mbtn p" style="font-size:12px" onclick="CM('chprof');openEditChannel('${ch.id}')">⚙️ Настройки</button><button class="mbtn" style="font-size:12px;background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.25)" onclick="CM('chprof');openCreateMedal('${ch.id}')">🏅 Создать медаль</button>`;
+  } else {
+    let btns=ch.isMember
+      ?`<button class="mbtn" style="font-size:12px;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25)" onclick="CM('chprof');leaveChannel('${ch.id}')">Отписаться</button>`
+      :`<button class="mbtn p" style="font-size:12px" onclick="CM('chprof');joinChannel('${ch.id}')">Подписаться</button>`;
+    acts.innerHTML=btns;
+  }
+  // Медали канала
+  const medalsEl=document.getElementById('chprof-medals');
+  medalsEl.innerHTML='<div style="font-size:11px;color:var(--tx3)">Загрузка медалей...</div>';
+  emit('get_custom_medals',{channelId});
+  // Сохраним channelId для рендеринга медалей
+  medalsEl.dataset.channelId=channelId;
+  OM('chprof');
+}
+
+function renderChannelProfileMedals(channelId,medals){
+  const medalsEl=document.getElementById('chprof-medals');
+  if(!medalsEl||medalsEl.dataset.channelId!==channelId)return;
+  if(!medals.length){medalsEl.innerHTML='';return;}
+  medalsEl.innerHTML=`<div style="font-size:12px;color:var(--tx2);font-weight:600;margin-bottom:8px">🏅 Медали канала</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${medals.map(m=>
+      `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:10px;text-align:center;cursor:pointer" onclick="promptBuyChannelMedal('${m.id}','${esc(m.name).replace(/'/g,"\\'")}',${m.cost})">
+        <img src="${m.img}" style="width:44px;height:44px;object-fit:contain;border-radius:10px;margin-bottom:4px">
+        <div style="font-size:12px;font-weight:600">${esc(m.name)}</div>
+        <div style="font-size:11px;color:var(--tx3)">${m.cost} 🪙</div>
+      </div>`
+    ).join('')}</div>`;
+}
+
+function promptBuyChannelMedal(medalId,name,cost){
+  if((me?.coins||0)<cost)return alert('Недостаточно монет');
+  const toName=prompt('Кому отправить? (оставьте пустым — себе)');
+  let toUserId=me?.id;
+  if(toName){
+    const u=Object.values(S.users).find(x=>x.username===toName||x.displayName===toName);
+    if(!u)return alert('Пользователь не найден');
+    toUserId=u.id;
+  }
+  if(!confirm(`Купить медаль «${name}» за ${cost} монет?`))return;
+  emit('buy_custom_medal',{medalId,toUserId});
+  CM('chprof');
+}
 
 function openCreateMedalForChannel(){
   if(!openChannelId)return;

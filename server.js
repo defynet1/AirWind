@@ -67,6 +67,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_badges TEXT DEFAULT '[]'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin INTEGER DEFAULT 0`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned INTEGER DEFAULT 0`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS banner TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_bg TEXT DEFAULT ''`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS owned_bgs TEXT DEFAULT '[]'`);
@@ -229,7 +230,8 @@ function safe(u) {
     isAdmin: !!u.is_admin,
     banner: u.banner || '',
     chatBg: u.chat_bg || '',
-    ownedBgs: JSON.parse(u.owned_bgs || '[]')
+    ownedBgs: JSON.parse(u.owned_bgs || '[]'),
+    banned: !!u.banned
   };
 }
 async function addCoins(userId, amount) {
@@ -604,6 +606,7 @@ wss.on('connection', ws => {
       const { username, password } = payload;
       const user = await getUserByUsername(username);
       if (!user||user.password!==hashPw(password)) return send(ws,{type:'error',payload:{msg:'Неверное имя пользователя или пароль'}});
+      if (user.banned) return send(ws,{type:'error',payload:{msg:'Ваш аккаунт заблокирован'}});
       await dbRun(`UPDATE users SET last_seen=$1 WHERE id=$2`,[Date.now(),user.id]);
       clients.set(ws, { userId: user.id, username });
       const [freshUser, myChats, allUsers, globalMsgs, feedPosts, channels] = await Promise.all([
@@ -1172,6 +1175,58 @@ wss.on('connection', ws => {
       const rows = await dbAll(`SELECT c.id, c.name, c.is_group, (SELECT COUNT(*) FROM messages WHERE chat_id=c.id) as msg_count FROM chats c ORDER BY c.name`);
       const chats = rows.map(r => ({id:r.id, name:r.name, isGroup:!!r.is_group, msgCount:Number(r.msg_count)}));
       send(ws,{type:'admin_chats',payload:{chats}});
+
+    } else if (type === 'admin_ban') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const { userId, ban } = payload;
+      await dbRun(`UPDATE users SET banned=$1 WHERE id=$2`, [ban?1:0, userId]);
+      // Отключить забаненного
+      if (ban) {
+        clients.forEach((ci,cw)=>{if(ci.userId===userId){send(cw,{type:'error',payload:{msg:'Ваш аккаунт заблокирован'}});cw.close();}});
+      }
+      send(ws,{type:'admin_ok',payload:{msg:ban?'Пользователь забанен':'Пользователь разбанен'}});
+
+    } else if (type === 'admin_get_channels') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const channels = await dbAll(`SELECT c.id, c.name, (SELECT COUNT(*) FROM channel_members WHERE channel_id=c.id) as member_count FROM channels c ORDER BY c.name`);
+      send(ws,{type:'admin_channels',payload:{channels:channels.map(c=>({id:c.id,name:c.name,memberCount:Number(c.member_count)}))}});
+
+    } else if (type === 'admin_boost_subs') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const { channelId, count } = payload;
+      // Добавить фейковых подписчиков (просто записи в channel_members)
+      for (let i=0;i<count;i++) {
+        const fakeId='bot_'+newId();
+        await dbRun(`INSERT INTO channel_members(channel_id,user_id,role,joined_at) VALUES($1,$2,'member',$3)`, [channelId, fakeId, Date.now()]);
+      }
+      send(ws,{type:'admin_ok',payload:{msg:`+${count} подписчиков добавлено`}});
+
+    } else if (type === 'admin_boost_coins') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const { userId, amount } = payload;
+      await dbRun(`UPDATE users SET coins=coins+$1 WHERE id=$2`, [amount, userId]);
+      const upd = await getUserById(userId);
+      if (upd) bcastAll({type:'user_updated',payload:{user:safe(upd)}});
+      send(ws,{type:'admin_ok',payload:{msg:`+${amount} монет начислено`}});
+
+    } else if (type === 'admin_boost_medals') {
+      if (!inf) return;
+      const admin = await getUserById(inf.userId);
+      if (!admin?.is_admin) return send(ws,{type:'error',payload:{msg:'Нет прав'}});
+      const { userId, giftId, count } = payload;
+      for (let i=0;i<count;i++) {
+        await dbRun(`INSERT INTO gifts(id,from_user_id,to_user_id,gift_id,ts) VALUES($1,$2,$3,$4,$5)`,
+          [newId(), inf.userId, userId, giftId, Date.now()]);
+      }
+      send(ws,{type:'admin_ok',payload:{msg:`+${count} медалей добавлено`}});
 
     // ── GALLERY ──
     } else if (type === 'gallery_create') {

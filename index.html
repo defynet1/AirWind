@@ -714,7 +714,6 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
         <div class="ch-row">
           <button class="stbtn" title="Медиафайл" onclick="document.getElementById('ch-mediafile').click()">📎</button>
           <input type="file" id="ch-mediafile" accept="audio/*,video/*" style="display:none" onchange="sendChanMedia(this)">
-          <button class="stbtn" title="Создать медаль" id="ch-medal-btn" onclick="openCreateMedalForChannel()">🏅</button>
           <textarea class="minput" id="ch-input" rows="1" placeholder="Написать в канал..."
             oninput="onInput(this)"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChanPost()}"></textarea>
@@ -3492,7 +3491,7 @@ function renderChannelHeader(ch){
     (ch.description||'')+' · '+ch.memberCount+' подписчик'+memberSuffix(ch.memberCount);
   const btns=document.getElementById('ch-hdr-btns');
   if(ch.isOwner){
-    btns.innerHTML=`<button class="ibtn" title="Настройки" onclick="openEditChannel('${ch.id}')" style="font-size:14px">⚙️</button>`;
+    btns.innerHTML=`<button class="ibtn" title="Создать медаль" onclick="openCreateMedal('${ch.id}')" style="font-size:14px">🏅</button><button class="ibtn" title="Настройки" onclick="openEditChannel('${ch.id}')" style="font-size:14px">⚙️</button>`;
   } else if(ch.isMember){
     btns.innerHTML=`<button class="ch-leave-btn" onclick="leaveChannel('${ch.id}')">Отписаться</button>`;
   } else {

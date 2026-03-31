@@ -1560,6 +1560,10 @@ function handle({type,payload}){
       if(S.polls){const p=S.polls.find(x=>x.id===payload.pollId);if(p)p.votes=payload.votes;}
       document.querySelectorAll(`[data-poll-id="${payload.pollId}"]`).forEach(el=>renderPollCard(el,payload.pollId));
       break;
+    case 'poll_deleted':
+      S.polls=S.polls.filter(p=>p.id!==payload.pollId);
+      document.querySelectorAll(`[data-poll-id="${payload.pollId}"]`).forEach(el=>el.remove());
+      break;
     case 'polls_list':
       if(!S.polls) S.polls=[];
       payload.polls.forEach(p=>{if(!S.polls.find(x=>x.id===p.id))S.polls.push(p);});
@@ -4378,8 +4382,12 @@ function pollCardHtml(poll){
       <div class="poll-opt-pct">${total?pct+'%':''}</div>
     </div>`;
   }).join('');
+  const canDel=me&&(poll.creatorId===me.id||me.isAdmin);
   return `<div class="poll-card" data-poll-id="${poll.id}">
-    <div class="poll-q">📊 ${esc(poll.question)}</div>
+    <div style="display:flex;align-items:flex-start;gap:8px">
+      <div class="poll-q" style="flex:1">📊 ${esc(poll.question)}</div>
+      ${canDel?`<button onclick="deletePoll('${poll.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-size:11px;padding:3px 8px;border-radius:6px;color:#ef4444;flex-shrink:0">🗑</button>`:''}
+    </div>
     ${optsHtml}
     <div class="poll-meta">
       <span>${total} голос${total===1?'':total<5?'а':'ов'}</span>
@@ -4396,6 +4404,13 @@ function renderPollCard(el,pollId){
   el.outerHTML=pollCardHtml(poll);
 }
 
+function deletePoll(pollId){
+  if(!confirm('Удалить опрос?'))return;
+  emit('delete_poll',{pollId});
+  S.polls=S.polls.filter(p=>p.id!==pollId);
+  const el=document.querySelector(`[data-poll-id="${pollId}"]`);
+  if(el)el.remove();
+}
 function votePoll(pollId,optionIdx){
   emit('vote_poll',{pollId,optionIdx});
 }

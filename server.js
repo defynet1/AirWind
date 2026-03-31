@@ -1445,6 +1445,17 @@ wss.on('connection', ws => {
         bcastAll(update);
       }
 
+    } else if (type === 'delete_poll') {
+      if (!inf) return;
+      const { pollId } = payload;
+      const poll = await dbGet(`SELECT * FROM polls WHERE id=$1`, [pollId]);
+      if (!poll) return;
+      const admin = await getUserById(inf.userId);
+      if (poll.creator_id !== inf.userId && !admin?.is_admin) return;
+      await dbRun(`DELETE FROM poll_votes WHERE poll_id=$1`, [pollId]);
+      await dbRun(`DELETE FROM polls WHERE id=$1`, [pollId]);
+      bcastAll({type:'poll_deleted', payload:{pollId}});
+
     } else if (type === 'get_polls') {
       const { context, contextId } = payload;
       const polls = await dbAll(`SELECT * FROM polls WHERE context=$1 AND context_id=$2 ORDER BY ts DESC`, [context||'feed', contextId||'']);

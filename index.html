@@ -139,7 +139,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--tx);height:100vh;h
 .sbtn:active{transform:scale(.95);box-shadow:none}
 
 /* ── MODALS ── */
-.mo{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.22s}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);z-index:20000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.22s}
 .mo.on{opacity:1;pointer-events:all}
 .md{background:rgba(15,17,22,.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.09);border-radius:22px;padding:28px;width:390px;max-width:90vw;transform:translateY(14px) scale(.97);transition:.22s;box-shadow:0 60px 120px rgba(0,0,0,.7),0 0 0 1px rgba(99,102,241,.08),inset 0 1px 0 rgba(255,255,255,.04)}
 .mo.on .md{transform:none}
@@ -261,7 +261,7 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-field{position:relative;min-width:100%;min-height:100%;background-size:100% 100%;background-position:top left;background-repeat:no-repeat;transform-origin:0 0}
 .galpage-canvas.editing{cursor:crosshair}
 .galpage-canvas.placing{cursor:cell}
-.gal-place-hint{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10;background:var(--ac);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:pop .2s cubic-bezier(.34,1.56,.64,1)}
+.gal-place-hint{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10001;background:var(--ac);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:pop .2s cubic-bezier(.34,1.56,.64,1)}
 .gal-place-hint button{background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:12px;margin-left:10px;cursor:pointer;font-size:12px}
 .galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s}
 .galpage-item:active{cursor:grabbing;box-shadow:0 8px 30px rgba(0,0,0,.7)}
@@ -3928,7 +3928,7 @@ function renderGalPageItems(){
       d.style.cssText=`left:${it.x}px;top:${it.y}px;width:${it.w}px;height:${it.h}px`;
       let inner=`<img src="${it.data}">`;
       if(it.caption) inner+=`<div style="position:absolute;bottom:0;left:0;right:0;padding:4px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;text-align:center">${esc(it.caption)}</div>`;
-      if(isOwner) inner+=`<button class="galpage-del-btn" onclick="event.stopPropagation();if(confirm('Удалить фото?'))emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:'${it.id}'})">✕</button>`;
+      if(isOwner) inner+=`<button class="galpage-del-btn" onclick="event.stopPropagation();galDelItem('${it.id}')">✕</button>`;
       d.innerHTML=inner;
       if(isOwner){
         makeDraggable(d,it);
@@ -4139,6 +4139,11 @@ function fitFieldToBg(url){
     field.style.height=img.naturalHeight+'px';
   };
   img.src=url;
+}
+function galDelItem(itemId){
+  if(!galPageGallery)return;
+  if(!confirm('Удалить элемент?'))return;
+  emit('gallery_delete_item',{galleryId:galPageGallery.id,itemId:itemId});
 }
 function galDeleteGallery(){if(!galPageGallery)return;if(!confirm('Удалить эту галерею? Все фото и элементы будут потеряны.'))return;emit('gallery_delete',{galleryId:galPageGallery.id});}
 function galRename(){

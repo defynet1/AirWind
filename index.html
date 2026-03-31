@@ -260,6 +260,9 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-canvas{flex:1;position:relative;overflow:scroll;-webkit-overflow-scrolling:touch}
 .galpage-field{position:relative;min-width:100%;min-height:100%;background-size:100% 100%;background-position:top left;background-repeat:no-repeat;transform-origin:0 0}
 .galpage-canvas.editing{cursor:crosshair}
+.galpage-canvas.placing{cursor:cell}
+.gal-place-hint{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10;background:var(--ac);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);animation:pop .2s cubic-bezier(.34,1.56,.64,1)}
+.gal-place-hint button{background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:12px;margin-left:10px;cursor:pointer;font-size:12px}
 .galpage-item{position:absolute;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.5);cursor:grab;user-select:none;transition:box-shadow .2s}
 .galpage-item:active{cursor:grabbing;box-shadow:0 8px 30px rgba(0,0,0,.7)}
 .galpage-del-btn{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,.9);border:none;color:#fff;font-size:12px;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 6px rgba(0,0,0,.4)}
@@ -3557,6 +3560,7 @@ let galPageUserId=null, galPageGallery=null, galPageItems=null;
 let galCreateBg='';
 let galDrawMode=false, galDrawColor='#ffffff', galDrawSize=3, galDrawEraser=false;
 let galZoom=1;
+let galPlaceMode=null; // {kind:'post',data,w,h} or {kind:'text',data,fontSize,color}
 
 function loadGalleries(){emit('galleries_list',{});}
 
@@ -3870,20 +3874,53 @@ async function galAddPhoto(inp){
   const file=inp.files[0];if(!file)return;
   try{
     const url=await uploadFile(file);
-    const x=Math.random()*200+20, y=Math.random()*200+20;
-    emit('gallery_add_item',{galleryId:galPageGallery.id,kind:'post',data:url,x,y,w:220,h:220});
+    startPlaceMode({kind:'post',data:url,w:220,h:220});
   }catch(e){alert('Ошибка загрузки: '+e.message);}
   inp.value='';
 }
 
-// ── Add text ──
 function galAddText(){
   const text=prompt('Введите текст:');
   if(!text)return;
   const size=prompt('Размер шрифта (18-48):','24')||'24';
   const color=prompt('Цвет (#ffffff):','#ffffff')||'#ffffff';
-  const x=Math.random()*150+30, y=Math.random()*150+60;
-  emit('gallery_add_item',{galleryId:galPageGallery.id,kind:'text',data:text,x,y,w:0,h:0,fontSize:parseInt(size),color});
+  startPlaceMode({kind:'text',data:text,fontSize:parseInt(size),color});
+}
+
+function startPlaceMode(item){
+  galPlaceMode=item;
+  const cv=document.getElementById('gp-canvas');
+  if(cv) cv.classList.add('placing');
+  // Показать подсказку
+  let hint=document.getElementById('gal-place-hint');
+  if(!hint){hint=document.createElement('div');hint.className='gal-place-hint';hint.id='gal-place-hint';document.body.appendChild(hint);}
+  hint.innerHTML=`Нажмите на место в галерее <button onclick="cancelPlaceMode()">Отмена</button>`;
+  // Слушаем клик по полю
+  const field=document.getElementById('gp-field');
+  if(field) field.addEventListener('click',onPlaceClick,{once:true});
+}
+
+function onPlaceClick(e){
+  if(!galPlaceMode||!galPageGallery)return cancelPlaceMode();
+  const field=document.getElementById('gp-field');
+  const rect=field.getBoundingClientRect();
+  const x=(e.clientX-rect.left)/galZoom;
+  const y=(e.clientY-rect.top)/galZoom;
+  const p=galPlaceMode;
+  if(p.kind==='post'){
+    emit('gallery_add_item',{galleryId:galPageGallery.id,kind:'post',data:p.data,x,y,w:p.w,h:p.h});
+  } else {
+    emit('gallery_add_item',{galleryId:galPageGallery.id,kind:'text',data:p.data,x,y,w:0,h:0,fontSize:p.fontSize,color:p.color});
+  }
+  cancelPlaceMode();
+}
+
+function cancelPlaceMode(){
+  galPlaceMode=null;
+  const cv=document.getElementById('gp-canvas');
+  if(cv) cv.classList.remove('placing');
+  const hint=document.getElementById('gal-place-hint');
+  if(hint) hint.remove();
 }
 
 // ── Draw on gallery ──

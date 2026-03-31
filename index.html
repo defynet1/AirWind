@@ -3302,25 +3302,14 @@ function openPostModal(){
   OM('cpm');
 }
 
-function pickPostPhoto(inp){
+async function pickPostPhoto(inp){
   const file=inp.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const img=new Image();
-    img.onload=()=>{
-      const maxW=1200,maxH=1200;
-      let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
-      const c=document.createElement('canvas'); c.width=w; c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
-      pendingPostMedia=c.toDataURL('image/jpeg',0.82);
-      document.getElementById('cpm-dz').innerHTML=`<img src="${pendingPostMedia}" style="width:100%;max-height:320px;object-fit:contain;display:block;border-radius:8px">`;
-      document.getElementById('cpm-submit').disabled=false;
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
+  try{
+    const url=await uploadFile(file);
+    pendingPostMedia=url;
+    document.getElementById('cpm-dz').innerHTML=`<img src="${url}" style="width:100%;max-height:320px;object-fit:contain;display:block;border-radius:8px">`;
+    document.getElementById('cpm-submit').disabled=false;
+  }catch(e){alert('Ошибка загрузки: '+e.message);}
   inp.value='';
 }
 

@@ -155,6 +155,12 @@ async function initDB() {
     PRIMARY KEY (user_id, pack_id)
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS custom_medals (
+    id TEXT PRIMARY KEY, channel_id TEXT NOT NULL,
+    name TEXT NOT NULL, img TEXT NOT NULL,
+    cost INTEGER NOT NULL, created_at BIGINT DEFAULT 0
+  )`);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS polls (
     id TEXT PRIMARY KEY, creator_id TEXT NOT NULL,
     question TEXT NOT NULL, options TEXT NOT NULL,
@@ -1272,6 +1278,61 @@ wss.on('connection', ws => {
       send(ws, {type:'gallery_deleted', payload:{galleryId}});
       bcastAll({type:'galleries_updated', payload:{}});
 
+    // ── CUSTOM MEDALS ──
+    } else if (type === 'create_custom_medal') {
+      if (!inf) return;
+      const { channelId, name, img, cost } = payload;
+      if (!channelId||!name||!img||!cost) return;
+      const ch = await dbGet(`SELECT * FROM channels WHERE id=$1 AND owner_id=$2`, [channelId, inf.userId]);
+      if (!ch) return send(ws,{type:'error',payload:{msg:'Вы не владелец этого канала'}});
+      const memberCount = await dbGet(`SELECT COUNT(*) as cnt FROM channel_members WHERE channel_id=$1`, [channelId]);
+      if (Number(memberCount.cnt) < 50) return send(ws,{type:'error',payload:{msg:'Нужно минимум 50 подписчиков для создания медалей'}});
+      const id = newId();
+      await dbRun(`INSERT INTO custom_medals(id,channel_id,name,img,cost,created_at) VALUES($1,$2,$3,$4,$5,$6)`,
+        [id, channelId, name, img, parseInt(cost), Date.now()]);
+      send(ws,{type:'custom_medal_created',payload:{medal:{id,channelId,name,img,cost:parseInt(cost)}}});
+
+    } else if (type === 'delete_custom_medal') {
+      if (!inf) return;
+      const { medalId } = payload;
+      const medal = await dbGet(`SELECT * FROM custom_medals WHERE id=$1`, [medalId]);
+      if (!medal) return;
+      const ch = await dbGet(`SELECT * FROM channels WHERE id=$1 AND owner_id=$2`, [medal.channel_id, inf.userId]);
+      if (!ch) return;
+      await dbRun(`DELETE FROM custom_medals WHERE id=$1`, [medalId]);
+      send(ws,{type:'custom_medal_deleted',payload:{medalId}});
+
+    } else if (type === 'get_custom_medals') {
+      const { channelId } = payload;
+      const medals = await dbAll(`SELECT * FROM custom_medals WHERE channel_id=$1 ORDER BY created_at DESC`, [channelId]);
+      send(ws,{type:'custom_medals_list',payload:{channelId, medals:medals.map(m=>({id:m.id,channelId:m.channel_id,name:m.name,img:m.img,cost:Number(m.cost)}))}});
+
+    } else if (type === 'buy_custom_medal') {
+      if (!inf) return;
+      const { medalId, toUserId } = payload;
+      const medal = await dbGet(`SELECT * FROM custom_medals WHERE id=$1`, [medalId]);
+      if (!medal) return send(ws,{type:'error',payload:{msg:'Медаль не найдена'}});
+      const buyer = await getUserById(inf.userId);
+      if (Number(buyer.coins||0) < medal.cost) return send(ws,{type:'error',payload:{msg:'Недостаточно монет'}});
+      const ch = await dbGet(`SELECT * FROM channels WHERE id=$1`, [medal.channel_id]);
+      if (!ch) return;
+      // Списать монеты у покупателя, начислить владельцу канала
+      await dbRun(`UPDATE users SET coins=coins-$1 WHERE id=$2`, [medal.cost, inf.userId]);
+      await dbRun(`UPDATE users SET coins=coins+$1 WHERE id=$2`, [medal.cost, ch.owner_id]);
+      // Записать как подарок
+      const gid = newId();
+      await dbRun(`INSERT INTO gifts(id,from_user_id,to_user_id,gift_id,ts) VALUES($1,$2,$3,$4,$5)`,
+        [gid, inf.userId, toUserId, 'custom_'+medal.id, Date.now()]);
+      const updBuyer = await getUserById(inf.userId);
+      const updOwner = await getUserById(ch.owner_id);
+      bcastAll({type:'user_updated',payload:{user:safe(updBuyer)}});
+      bcastAll({type:'user_updated',payload:{user:safe(updOwner)}});
+      const target = await getUserById(toUserId);
+      send(ws,{type:'gift_sent',payload:{giftId:'custom_'+medal.id,toUserId,toName:target?.display_name||''}});
+      clients.forEach((ci,w)=>{if(ci.userId===toUserId)send(w,{type:'gift_received',payload:{giftId:'custom_'+medal.id,fromName:buyer.display_name,fromId:inf.userId}});});
+      // Обновить отображение медалей у получателя
+      if(toUserId) clients.forEach((ci,w)=>{if(ci.userId===toUserId)send(w,{type:'gifts_refresh',payload:{}});});
+
     // ── POLLS ──
     } else if (type === 'create_poll') {
       if (!inf) return;
@@ -1359,7 +1420,13 @@ wss.on('connection', ws => {
       if (!inf) return;
       const userId = payload.userId || inf.userId;
       const gifts = await dbAll(`SELECT gift_id, COUNT(*) as cnt FROM gifts WHERE to_user_id=$1 GROUP BY gift_id`, [userId]);
-      send(ws,{type:'user_gifts',payload:{userId, gifts}});
+      // Подгрузить данные кастомных медалей
+      const customIds = gifts.filter(g=>g.gift_id.startsWith('custom_')).map(g=>g.gift_id.replace('custom_',''));
+      let customMedals = [];
+      if(customIds.length){
+        customMedals = await dbAll(`SELECT * FROM custom_medals WHERE id = ANY($1::text[])`, [customIds]);
+      }
+      send(ws,{type:'user_gifts',payload:{userId, gifts, customMedals: customMedals.map(m=>({id:m.id,name:m.name,img:m.img}))}});
     }
     } catch(e) { console.error('ws msg error:', e); send(ws,{type:'error',payload:{msg:'Ошибка сервера: '+e.message}}); }
   });

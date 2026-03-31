@@ -289,6 +289,14 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
 .galpage-draw-tools{display:flex;gap:4px;align-items:center}
 .galpage-draw-tools .gd-clr{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer}
 .galpage-draw-tools .gd-clr.on{border-color:#fff;transform:scale(1.15)}
+/* Custom Medals */
+.cm-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.cm-item{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px;text-align:center;cursor:pointer;transition:.15s}
+.cm-item:hover{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.2)}
+.cm-item img{width:56px;height:56px;object-fit:contain;border-radius:12px;margin-bottom:6px}
+.cm-item-name{font-size:13px;font-weight:600;color:var(--tx)}
+.cm-item-cost{font-size:11px;color:var(--tx3);margin-top:2px}
+.cm-item-del{font-size:10px;color:#ef4444;cursor:pointer;margin-top:4px;background:none;border:none}
 /* Polls */
 .poll-card{background:var(--sf);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px;margin:8px 0}
 .poll-q{font-size:15px;font-weight:600;margin-bottom:10px}
@@ -884,6 +892,39 @@ audio::-webkit-media-controls-panel{background:var(--sf3)}
   </div>
 </div>
 
+<!-- Custom Medal Create Modal -->
+<div class="mo" id="cmm">
+  <div class="md" style="max-width:380px">
+    <button class="mclose" onclick="CM('cmm')">✕</button>
+    <div class="mt">🏅 Создать медаль</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Для каналов с 50+ подписчиками. Покупатели платят вам монеты.</div>
+    <div style="text-align:center;margin-bottom:12px">
+      <div id="cm-preview" style="width:80px;height:80px;border-radius:16px;background:var(--sf2);margin:0 auto;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden" onclick="document.getElementById('cm-img-input').click()">
+        <span style="font-size:28px;color:var(--tx3)">+</span>
+      </div>
+      <input type="file" id="cm-img-input" accept="image/*" style="display:none" onchange="cmPickImg(this)">
+      <div style="font-size:11px;color:var(--tx3);margin-top:4px">Нажмите для выбора фото</div>
+    </div>
+    <div class="afield" style="margin-bottom:8px"><input id="cm-name" placeholder="Название медали"></div>
+    <div class="afield" style="margin-bottom:8px"><input id="cm-cost" type="number" min="5" placeholder="Цена (монеты)" value="50"></div>
+    <div class="mact">
+      <button class="mbtn g" onclick="CM('cmm')">Отмена</button>
+      <button class="mbtn p" onclick="submitCustomMedal()">Создать</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Medal Shop Modal -->
+<div class="mo" id="cmsm">
+  <div class="md" style="max-width:400px">
+    <button class="mclose" onclick="CM('cmsm')">✕</button>
+    <div class="mt">🏅 Медали канала</div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:4px">Отправьте кому: <strong id="cms-to-name"></strong></div>
+    <div style="font-size:12px;color:var(--tx3);margin-bottom:8px">У вас: <span id="cms-coins">0</span> 🪙</div>
+    <div class="cm-list" id="cms-list"></div>
+  </div>
+</div>
+
 <!-- Poll Create Modal -->
 <div class="mo" id="pollm">
   <div class="md" style="max-width:400px">
@@ -1444,6 +1485,15 @@ function handle({type,payload}){
       alert(payload.effectId?'Эффект применён!':'Эффект снят');
       loadGalleries();
       break;
+    // Custom Medals
+    case 'custom_medal_created':
+      alert('Медаль создана!');break;
+    case 'custom_medal_deleted':
+      alert('Медаль удалена');break;
+    case 'custom_medals_list':
+      renderCustomMedalShop(payload.channelId,payload.medals);break;
+    case 'gifts_refresh':
+      if(me) loadUserGifts(me.id);break;
     // Polls
     case 'new_poll':
       if(!S.polls) S.polls=[];
@@ -1487,7 +1537,7 @@ function handle({type,payload}){
       alert(`🏅 ${payload.fromName} наградил(а) вас медалью «${gi?.name||payload.giftId}»!`);
       break;}
     case 'user_gifts':
-      renderUserGifts(payload.userId,payload.gifts);
+      renderUserGifts(payload.userId,payload.gifts,payload.customMedals);
       break;
   }
 }
@@ -2015,12 +2065,19 @@ function sendGift(giftId){
 function loadUserGifts(userId){
   emit('get_gifts',{userId});
 }
-function renderUserGifts(userId,gifts){
+function renderUserGifts(userId,gifts,customMedals){
   const container=document.getElementById('upc-gifts');
   if(!container)return;
   if(!gifts||!gifts.length){container.style.display='none';return;}
   container.style.display='flex';
+  const cmMap={};
+  (customMedals||[]).forEach(m=>cmMap[m.id]=m);
   container.innerHTML=gifts.map(g=>{
+    if(g.gift_id.startsWith('custom_')){
+      const cm=cmMap[g.gift_id.replace('custom_','')];
+      if(!cm)return '';
+      return `<div class="upc-gift"><img src="${cm.img}"><span class="upc-gift-cnt">x${g.cnt}</span></div>`;
+    }
     const gi=GIFTS.find(x=>x.id===g.gift_id);
     if(!gi)return '';
     return `<div class="upc-gift"><img src="${gi.img}"><span class="upc-gift-cnt">x${g.cnt}</span></div>`;
@@ -3363,7 +3420,7 @@ function renderChannelHeader(ch){
     (ch.description||'')+' · '+ch.memberCount+' подписчик'+memberSuffix(ch.memberCount);
   const btns=document.getElementById('ch-hdr-btns');
   if(ch.isOwner){
-    btns.innerHTML='';
+    btns.innerHTML=`<button class="ibtn" title="Создать медаль" onclick="openCreateMedal('${ch.id}')" style="font-size:14px">🏅</button>`;
   } else if(ch.isMember){
     btns.innerHTML=`<button class="ch-leave-btn" onclick="leaveChannel('${ch.id}')">Отписаться</button>`;
   } else {
@@ -4244,6 +4301,84 @@ function renderPollsInContext(context,contextId){
 
 function loadPolls(context,contextId){
   emit('get_polls',{context,contextId:contextId||''});
+}
+
+// ════════════════════════════════════
+//  CUSTOM MEDALS
+// ════════════════════════════════════
+let cmChannelId='', cmImgUrl='';
+let customMedalsCache={};
+
+function openCreateMedal(channelId){
+  cmChannelId=channelId;cmImgUrl='';
+  document.getElementById('cm-name').value='';
+  document.getElementById('cm-cost').value='50';
+  const prev=document.getElementById('cm-preview');
+  prev.innerHTML='<span style="font-size:28px;color:var(--tx3)">+</span>';
+  OM('cmm');
+}
+
+async function cmPickImg(inp){
+  const file=inp.files[0];if(!file)return;
+  try{
+    cmImgUrl=await uploadFile(file);
+    const prev=document.getElementById('cm-preview');
+    prev.innerHTML=`<img src="${cmImgUrl}" style="width:100%;height:100%;object-fit:cover">`;
+  }catch(e){alert('Ошибка: '+e.message);}
+  inp.value='';
+}
+
+function submitCustomMedal(){
+  const name=document.getElementById('cm-name').value.trim();
+  const cost=parseInt(document.getElementById('cm-cost').value);
+  if(!name)return alert('Введите название');
+  if(!cmImgUrl)return alert('Выберите изображение');
+  if(!cost||cost<5)return alert('Минимальная цена 5 монет');
+  emit('create_custom_medal',{channelId:cmChannelId,name,img:cmImgUrl,cost});
+  CM('cmm');
+}
+
+function openCustomMedalShop(channelId,toUserId,toName){
+  document.getElementById('cms-to-name').textContent=toName||'';
+  document.getElementById('cms-coins').textContent=me?.coins||0;
+  document.getElementById('cms-list').innerHTML='<div style="text-align:center;color:var(--tx3);font-size:13px;padding:16px">Загрузка...</div>';
+  customMedalShopTo=toUserId;
+  customMedalShopChannel=channelId;
+  emit('get_custom_medals',{channelId});
+  OM('cmsm');
+}
+let customMedalShopTo='',customMedalShopChannel='';
+
+function renderCustomMedalShop(channelId,medals){
+  customMedalsCache[channelId]=medals;
+  const list=document.getElementById('cms-list');
+  if(!list||!document.getElementById('cmsm')?.classList.contains('on'))return;
+  const isOwner=S.channels[channelId]?.ownerId===me?.id;
+  if(!medals.length){
+    list.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--tx3);font-size:13px;padding:16px">Нет медалей</div>';
+    return;
+  }
+  list.innerHTML=medals.map(m=>`<div class="cm-item" onclick="buyCustomMedal('${m.id}')">
+    <img src="${m.img}">
+    <div class="cm-item-name">${esc(m.name)}</div>
+    <div class="cm-item-cost">${m.cost} 🪙</div>
+    ${isOwner?`<button class="cm-item-del" onclick="event.stopPropagation();deleteCustomMedal('${m.id}')">Удалить</button>`:''}
+  </div>`).join('');
+}
+
+function buyCustomMedal(medalId){
+  const medals=Object.values(customMedalsCache).flat();
+  const m=medals.find(x=>x.id===medalId);
+  if(!m)return;
+  if((me?.coins||0)<m.cost)return alert('Недостаточно монет');
+  if(!confirm(`Купить медаль «${m.name}» за ${m.cost} монет?`))return;
+  emit('buy_custom_medal',{medalId,toUserId:customMedalShopTo});
+  CM('cmsm');
+}
+
+function deleteCustomMedal(medalId){
+  if(!confirm('Удалить эту медаль?'))return;
+  emit('delete_custom_medal',{medalId});
 }
 
 </script>

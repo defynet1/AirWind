@@ -335,9 +335,10 @@ async function editMsg(msgId, text, userId) {
   await dbRun(`UPDATE messages SET text=$1, edited=1 WHERE id=$2`, [text, msgId]);
   return getMessageById(msgId);
 }
-async function deleteMsg(msgId, userId) {
+async function deleteMsg(msgId, userId, isAdmin=false) {
   const m = await getMessageById(msgId);
-  if (!m || m.senderId !== userId) return null;
+  if (!m) return null;
+  if (m.senderId !== userId && !isAdmin) return null;
   await dbRun(`UPDATE messages SET deleted=1 WHERE id=$1`, [msgId]);
   return m;
 }
@@ -648,7 +649,8 @@ wss.on('connection', ws => {
 
     } else if (type === 'delete_message') {
       if (!inf) return;
-      const deleted = await deleteMsg(payload.msgId, inf.userId);
+      const admin = await getUserById(inf.userId);
+      const deleted = await deleteMsg(payload.msgId, inf.userId, !!admin?.is_admin);
       if (deleted) await bcastChat(deleted.chatId, {type:'message_deleted',payload:{msgId:deleted.id,chatId:deleted.chatId}});
 
     } else if (type === 'mark_read') {
@@ -915,7 +917,9 @@ wss.on('connection', ws => {
       if (!inf) return;
       const { postId } = payload;
       const post = await dbGet(`SELECT user_id FROM posts WHERE id=$1`, [postId]);
-      if (!post || post.user_id !== inf.userId) return;
+      if (!post) return;
+      const admin = await getUserById(inf.userId);
+      if (post.user_id !== inf.userId && !admin?.is_admin) return;
       await dbRun(`DELETE FROM post_reactions WHERE post_id=$1`, [postId]);
       await dbRun(`DELETE FROM post_likes WHERE post_id=$1`, [postId]);
       await dbRun(`DELETE FROM post_comments WHERE post_id=$1`, [postId]);
@@ -926,9 +930,10 @@ wss.on('connection', ws => {
       if (!inf) return;
       const cpDel = await dbGet(`SELECT channel_id FROM channel_posts WHERE id=$1`, [payload.postId]);
       if (!cpDel) return;
+      const siteAdmin = await getUserById(inf.userId);
       const memDel = await dbGet(`SELECT role FROM channel_members WHERE channel_id=$1 AND user_id=$2`,
         [cpDel.channel_id, inf.userId]);
-      if (!memDel || !['owner','admin'].includes(memDel.role)) return;
+      if (!siteAdmin?.is_admin && (!memDel || !['owner','admin'].includes(memDel.role))) return;
       await dbRun(`DELETE FROM channel_posts WHERE id=$1`, [payload.postId]);
       await dbRun(`DELETE FROM channel_post_reactions WHERE post_id=$1`, [payload.postId]);
       await bcastChannel(cpDel.channel_id, {type:'channel_post_deleted',

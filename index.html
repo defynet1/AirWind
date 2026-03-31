@@ -1814,7 +1814,7 @@ function bubbleHtml(m,isGroup){
   const senderRow=(!sent&&isGroup)?`<div class="msender" style="color:${S.users[m.senderId]?.avatarColor||'var(--ac)'};cursor:pointer" onclick="viewUserProfile('${m.senderId}')">${esc(uName(m.senderId))}${verifiedHtml(S.users[m.senderId])}${badgeHtml(S.users[m.senderId]?.statusBadge||'')}</div>`:'';
   const actions=m.deleted?'':`<div class="msg-actions">
     ${sent?`<button class="mac" title="Редактировать" onclick="startEdit('${m.id}')">✏️</button>`:''}
-    ${sent?`<button class="mac" title="Удалить" onclick="delMsg('${m.id}')">🗑️</button>`:''}
+    ${sent||me?.isAdmin?`<button class="mac" title="Удалить" onclick="delMsg('${m.id}')">🗑️</button>`:''}
     <button class="mac" title="Ответить" onclick="startReply('${m.id}')">↩️</button>
     <button class="mac" title="Реакция" onclick="showReactionPicker(this,'${m.id}','msg')">😊</button>
   </div>`;
@@ -3198,7 +3198,7 @@ function postCardHtml(p){
     <div class="post-ph">
       <div class="av" style="${avStyle(u.avatarColor||'#555',u.avatarUrl||'',u.frame||'')};width:38px;height:38px;font-size:13px;flex-shrink:0">${avInner(u.displayName||'?',u.avatarUrl||'')}</div>
       <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:2px">${esc(u.displayName||'?')}${verifiedHtml(u)}${badgeHtml(u.statusBadge||'')}</div><div style="font-size:11px;color:var(--tx3);font-family:var(--mono)">${ft(p.ts)}</div></div>
-      ${isMine?`<button onclick="deletePost('${p.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-size:13px;padding:5px 10px;border-radius:8px;color:#ef4444" title="Удалить пост">🗑 Удалить</button>`:''}
+      ${isMine||me?.isAdmin?`<button onclick="deletePost('${p.id}')" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-size:13px;padding:5px 10px;border-radius:8px;color:#ef4444" title="Удалить пост">🗑${me?.isAdmin&&!isMine?' Админ':' Удалить'}</button>`:''}
     </div>
     <img class="post-img" src="${p.mediaData}" loading="lazy" onclick="openImageFull('${p.id}')">
     <div class="post-body">
@@ -3547,7 +3547,7 @@ function chanPostHtml(p){
   const isOwner=ch&&ch.isOwner;
   const mediaHtml=chanMediaHtml(p.media);
   const reactHtml=reactionBadgesHtml(p.reactions||{},'chanpost',p.id);
-  const del=isOwner?`<button class="cpa" onclick="deleteChanPost('${p.id}')">🗑️</button>`:'';
+  const del=isOwner||me?.isAdmin?`<button class="cpa" onclick="deleteChanPost('${p.id}')">🗑️</button>`:'';
   const react=`<button class="cpa" onclick="showReactionPicker(this,'${p.id}','chanpost')">😊</button>`;
   return `<div class="cp" id="cp_${p.id}">
     <div class="cp-bubble">
@@ -4428,9 +4428,17 @@ function renderPollsInContext(context,contextId){
       const field=document.getElementById('gp-field');
       if(!field)return;
       container=document.createElement('div');container.id='gal-polls';
-      container.style.cssText='position:absolute;left:10px;top:10px;z-index:4;display:flex;flex-direction:column;gap:8px;max-width:360px;cursor:grab;user-select:none';
+      const saved=JSON.parse(localStorage.getItem('gal_poll_pos_'+contextId)||'null');
+      const px=saved?.x??10, py=saved?.y??10;
+      container.style.cssText=`position:absolute;left:${px}px;top:${py}px;z-index:4;display:flex;flex-direction:column;gap:8px;max-width:360px;cursor:grab;user-select:none`;
       field.appendChild(container);
-      if(galPageUserId===me?.id) makeSimpleDraggable(container);
+      if(galPageUserId===me?.id){
+        makeSimpleDraggable(container);
+        const obs=new MutationObserver(()=>{
+          localStorage.setItem('gal_poll_pos_'+contextId,JSON.stringify({x:parseInt(container.style.left)||0,y:parseInt(container.style.top)||0}));
+        });
+        obs.observe(container,{attributes:true,attributeFilter:['style']});
+      }
     }
     container.innerHTML=polls.map(pollCardHtml).join('');
   }

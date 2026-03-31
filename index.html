@@ -3891,13 +3891,25 @@ function startPlaceMode(item){
   galPlaceMode=item;
   const cv=document.getElementById('gp-canvas');
   if(cv) cv.classList.add('placing');
-  // Показать подсказку
   let hint=document.getElementById('gal-place-hint');
   if(!hint){hint=document.createElement('div');hint.className='gal-place-hint';hint.id='gal-place-hint';document.body.appendChild(hint);}
   hint.innerHTML=`Нажмите на место в галерее <button onclick="cancelPlaceMode()">Отмена</button>`;
-  // Слушаем клик по полю
   const field=document.getElementById('gp-field');
-  if(field) field.addEventListener('click',onPlaceClick,{once:true});
+  if(!field)return;
+  // Мышь
+  field.addEventListener('click',onPlaceClick,{once:true});
+  // Тач — отдельный обработчик
+  field._placeTouch=function(e){
+    if(!galPlaceMode)return;
+    if(e.touches.length!==1)return;
+    e.preventDefault();
+    const t=e.changedTouches?e.changedTouches[0]:e.touches[0];
+    const rect=field.getBoundingClientRect();
+    const x=(t.clientX-rect.left)/galZoom;
+    const y=(t.clientY-rect.top)/galZoom;
+    placeItem(x,y);
+  };
+  field.addEventListener('touchend',field._placeTouch,{once:true});
 }
 
 function onPlaceClick(e){
@@ -3906,6 +3918,11 @@ function onPlaceClick(e){
   const rect=field.getBoundingClientRect();
   const x=(e.clientX-rect.left)/galZoom;
   const y=(e.clientY-rect.top)/galZoom;
+  placeItem(x,y);
+}
+
+function placeItem(x,y){
+  if(!galPlaceMode||!galPageGallery)return cancelPlaceMode();
   const p=galPlaceMode;
   if(p.kind==='post'){
     emit('gallery_add_item',{galleryId:galPageGallery.id,kind:'post',data:p.data,x,y,w:p.w,h:p.h});
@@ -3921,6 +3938,11 @@ function cancelPlaceMode(){
   if(cv) cv.classList.remove('placing');
   const hint=document.getElementById('gal-place-hint');
   if(hint) hint.remove();
+  const field=document.getElementById('gp-field');
+  if(field){
+    field.removeEventListener('click',onPlaceClick);
+    if(field._placeTouch){field.removeEventListener('touchend',field._placeTouch);field._placeTouch=null;}
+  }
 }
 
 // ── Draw on gallery ──

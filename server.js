@@ -278,14 +278,16 @@ async function createGroupChat(name, memberIds) {
 }
 
 // ─── Message ops ──────────────────────────────────
-async function getMessages(chatId, limit = 200, before = null) {
+async function getMessages(chatId, limit = 40, before = null) {
   const p = [chatId];
-  let sql = `SELECT m.*, STRING_AGG(rr.user_id, ',') as read_by
-    FROM messages m LEFT JOIN read_receipts rr ON m.id=rr.msg_id
-    WHERE m.chat_id=$1 AND m.deleted=0`;
-  if (before) { p.push(before); sql += ` AND m.ts<$${p.length}`; }
+  let where = `m.chat_id=$1 AND m.deleted=0`;
+  if (before) { p.push(before); where += ` AND m.ts<$${p.length}`; }
   p.push(limit);
-  sql += ` GROUP BY m.id ORDER BY m.ts ASC LIMIT $${p.length}`;
+  // Subquery fetches the N most recent rows (DESC), outer query re-sorts ASC
+  const sql = `SELECT sub.*, STRING_AGG(rr.user_id, ',') as read_by
+    FROM (SELECT * FROM messages m WHERE ${where} ORDER BY m.ts DESC LIMIT $${p.length}) sub
+    LEFT JOIN read_receipts rr ON sub.id=rr.msg_id
+    GROUP BY sub.id ORDER BY sub.ts ASC`;
   const msgs = (await dbAll(sql, p)).map(toMsg);
   if (msgs.length) {
     const reacMap = await getMsgReactionsMap(msgs.map(m => m.id));
@@ -626,10 +628,7 @@ wss.on('connection', ws => {
       bcastAll({type:'online',payload:{userIds:onlineIds()}},ws);
       send(ws,{type:'feed',payload:{posts:feedPosts,reset:true}});
       send(ws,{type:'channels_list',payload:{channels}});
-      // Load chat histories in parallel
-      await Promise.all(myChats.map(async c =>
-        send(ws,{type:'chat_history',payload:{chatId:c.id,messages:await getMessages(c.id)}})
-      ));
+      // Chat histories are loaded on-demand when the user opens a chat
       console.log('login:', username);
 
     } else if (type === 'send_message') {
@@ -732,7 +731,13 @@ wss.on('connection', ws => {
 
     } else if (type === 'load_more') {
       if (!inf) return;
-      send(ws,{type:'chat_history_more',payload:{chatId:payload.chatId,messages:await getMessages(payload.chatId,50,payload.before)}});
+      const msgs = await getMessages(payload.chatId, 40, payload.before||null);
+      if (!payload.before) {
+        // Initial load for a chat — send as chat_history so frontend replaces state
+        send(ws,{type:'chat_history',payload:{chatId:payload.chatId,messages:msgs}});
+      } else {
+        send(ws,{type:'chat_history_more',payload:{chatId:payload.chatId,messages:msgs}});
+      }
 
     } else if (type === 'update_profile') {
       if (!inf) return;
@@ -1107,22 +1112,24 @@ wss.on('connection', ws => {
     } else if (type === 'get_my_packs') {
       if (!inf) return;
       const packs = await dbAll(`SELECT sp.* FROM sticker_packs sp JOIN user_packs up ON up.pack_id=sp.id WHERE up.user_id=$1 ORDER BY sp.created_at DESC`, [inf.userId]);
-      const result = [];
-      for (const p of packs) {
-        const stickers = await dbAll(`SELECT id,data,emoji FROM sticker_items WHERE pack_id=$1 ORDER BY ts`, [p.id]);
-        result.push({id:p.id, name:p.name, ownerId:p.owner_id, cover:p.cover||'', stickers});
-      }
-      send(ws,{type:'my_packs',payload:{packs:result}});
+      if (packs.length) {
+        const packIds = packs.map(p => p.id);
+        const allStickers = await dbAll(`SELECT id,data,emoji,pack_id FROM sticker_items WHERE pack_id IN (${packIds.map((_,i)=>'$'+(i+1)).join(',')}) ORDER BY ts`, packIds);
+        const stickerMap = {};
+        allStickers.forEach(s => { (stickerMap[s.pack_id] = stickerMap[s.pack_id] || []).push({id:s.id,data:s.data,emoji:s.emoji}); });
+        send(ws,{type:'my_packs',payload:{packs:packs.map(p=>({id:p.id, name:p.name, ownerId:p.owner_id, cover:p.cover||'', stickers:stickerMap[p.id]||[]}))}});
+      } else send(ws,{type:'my_packs',payload:{packs:[]}});
 
     } else if (type === 'get_all_packs') {
       if (!inf) return;
       const packs = await dbAll(`SELECT sp.*, CASE WHEN up.user_id IS NOT NULL THEN 1 ELSE 0 END as installed FROM sticker_packs sp LEFT JOIN user_packs up ON up.pack_id=sp.id AND up.user_id=$1 ORDER BY sp.created_at DESC`, [inf.userId]);
-      const result = [];
-      for (const p of packs) {
-        const stickers = await dbAll(`SELECT id,data,emoji FROM sticker_items WHERE pack_id=$1 ORDER BY ts`, [p.id]);
-        result.push({id:p.id, name:p.name, ownerId:p.owner_id, cover:p.cover||'', installed:!!p.installed, stickers});
-      }
-      send(ws,{type:'all_packs',payload:{packs:result}});
+      if (packs.length) {
+        const packIds = packs.map(p => p.id);
+        const allStickers = await dbAll(`SELECT id,data,emoji,pack_id FROM sticker_items WHERE pack_id IN (${packIds.map((_,i)=>'$'+(i+1)).join(',')}) ORDER BY ts`, packIds);
+        const stickerMap = {};
+        allStickers.forEach(s => { (stickerMap[s.pack_id] = stickerMap[s.pack_id] || []).push({id:s.id,data:s.data,emoji:s.emoji}); });
+        send(ws,{type:'all_packs',payload:{packs:packs.map(p=>({id:p.id, name:p.name, ownerId:p.owner_id, cover:p.cover||'', installed:!!p.installed, stickers:stickerMap[p.id]||[]}))}});
+      } else send(ws,{type:'all_packs',payload:{packs:[]}});
 
     } else if (type === 'install_pack') {
       if (!inf) return;
@@ -1460,11 +1467,18 @@ wss.on('connection', ws => {
       const { context, contextId } = payload;
       const polls = await dbAll(`SELECT * FROM polls WHERE context=$1 AND context_id=$2 ORDER BY ts DESC`, [context||'feed', contextId||'']);
       const result = [];
-      for (const p of polls) {
-        const allVotes = await dbAll(`SELECT option_idx, user_id FROM poll_votes WHERE poll_id=$1`, [p.id]);
-        const votes = {};
-        allVotes.forEach(v=>{if(!votes[v.option_idx])votes[v.option_idx]=[];votes[v.option_idx].push(v.user_id);});
-        result.push({id:p.id, creatorId:p.creator_id, question:p.question, options:JSON.parse(p.options), context:p.context, contextId:p.context_id, multiple:!!p.multiple, anonymous:!!p.anonymous, ts:Number(p.ts), votes});
+      if (polls.length) {
+        const pollIds = polls.map(p => p.id);
+        const allVotes = await dbAll(`SELECT poll_id, option_idx, user_id FROM poll_votes WHERE poll_id IN (${pollIds.map((_,i)=>'$'+(i+1)).join(',')})`, pollIds);
+        const voteMap = {};
+        allVotes.forEach(v => {
+          if (!voteMap[v.poll_id]) voteMap[v.poll_id] = {};
+          if (!voteMap[v.poll_id][v.option_idx]) voteMap[v.poll_id][v.option_idx] = [];
+          voteMap[v.poll_id][v.option_idx].push(v.user_id);
+        });
+        for (const p of polls) {
+          result.push({id:p.id, creatorId:p.creator_id, question:p.question, options:JSON.parse(p.options), context:p.context, contextId:p.context_id, multiple:!!p.multiple, anonymous:!!p.anonymous, ts:Number(p.ts), votes:voteMap[p.id]||{}});
+        }
       }
       send(ws, {type:'polls_list', payload:{context:context||'feed', contextId:contextId||'', polls:result}});
 

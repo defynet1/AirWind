@@ -1229,7 +1229,7 @@ function handle({type,payload}){
 
     case 'users':
       payload.users.forEach(u=>S.users[u.id]=u);
-      renderList(); if(galList.length) renderGalStrip(); break;
+      scheduleRenderList(); if(galList.length) renderGalStrip(); break;
 
     case 'user_joined':
     case 'profile_updated':
@@ -1241,40 +1241,45 @@ function handle({type,payload}){
     case 'user_updated':
       S.users[payload.user.id]=payload.user;
       if(me&&payload.user.id===me.id){me=payload.user;updateCoins(me.coins||0);if(document.getElementById('fsm')?.classList.contains('on'))openFrameShop();if(document.getElementById('bsm')?.classList.contains('on'))openBadgeShop();}
-      renderList();
+      scheduleRenderList();
       if(openChatId)updateHeader(openChatId); break;
 
     case 'online':
       S.online=new Set(payload.userIds);
-      renderList();
+      scheduleRenderList();
       if(openChatId)updateHeader(openChatId); break;
 
     case 'chats':
       payload.chats.forEach(c=>{S.chats[c.id]=c;if(!S.msgs[c.id])S.msgs[c.id]=[]});
-      renderList(); break;
+      scheduleRenderList(); break;
 
     case 'chat_history':
       S.msgs[payload.chatId]=payload.messages;
       S.unread[payload.chatId]=payload.messages.filter(m=>me&&!m.readBy.includes(me.id)&&m.senderId!==me.id).length;
       if(openChatId===payload.chatId)renderMsgs(payload.chatId);
-      renderList(); break;
+      scheduleRenderList(); break;
 
     case 'chat_history_more': {
       const existing=S.msgs[payload.chatId]||[];
       S.msgs[payload.chatId]=[...payload.messages,...existing];
-      if(openChatId===payload.chatId)renderMsgs(payload.chatId);
+      if(openChatId===payload.chatId){
+        const area=document.getElementById('msgs');
+        const oldH=area.scrollHeight;
+        renderMsgs(payload.chatId);
+        area.scrollTop=area.scrollHeight-oldH;
+      }
       break;}
 
     case 'chat_created':
       S.chats[payload.chat.id]=payload.chat;
       if(!S.msgs[payload.chat.id])S.msgs[payload.chat.id]=[];
-      renderList();
+      scheduleRenderList();
       if(pendingChat===payload.chat.id){pendingChat=null;openChat(payload.chat.id);}
       break;
 
     case 'group_updated':
       S.chats[payload.chat.id]=payload.chat;
-      renderList();
+      scheduleRenderList();
       if(openChatId===payload.chat.id)updateHeader(payload.chat.id);
       break;
 
@@ -1282,7 +1287,7 @@ function handle({type,payload}){
       delete S.chats[payload.chatId];
       delete S.msgs[payload.chatId];
       if(openChatId===payload.chatId){openChatId=null;document.getElementById('achat').classList.add('hidden');document.getElementById('noc').classList.remove('hidden');if(isMobile()){document.querySelector('.stabs').classList.remove('hidden');mobileBack();}}
-      renderList();
+      scheduleRenderList();
       break;
 
     case 'new_message':{
@@ -1294,7 +1299,7 @@ function handle({type,payload}){
         else emit('mark_read',{chatId:m.chatId});
       }
       if(openChatId===m.chatId)appendMsg(m);
-      renderList(); break;}
+      scheduleRenderList(); break;}
 
     case 'message_edited':{
       const m=payload.msg;
@@ -1307,7 +1312,7 @@ function handle({type,payload}){
           const ef=el.querySelector('.medit');if(ef)ef.style.display='inline';else{
             const f=el.querySelector('.mfooter');if(f){const s=document.createElement('span');s.className='medit';s.textContent='изм.';f.insertBefore(s,f.firstChild);}}}
       }
-      renderList(); break;}
+      scheduleRenderList(); break;}
 
     case 'message_deleted':{
       const arr=S.msgs[payload.chatId]||[];
@@ -1318,7 +1323,7 @@ function handle({type,payload}){
         if(el){const t=el.querySelector('.mtext');t.textContent='Сообщение удалено';t.classList.add('deleted');
           const ma=el.querySelector('.msg-actions');if(ma)ma.remove();}
       }
-      renderList(); break;}
+      scheduleRenderList(); break;}
 
     case 'messages_read':{
       const arr=S.msgs[payload.chatId]||[];
@@ -1517,7 +1522,7 @@ function handle({type,payload}){
     case 'chat_cleared':
       S.msgs[payload.chatId]=[];
       if(openChatId===payload.chatId) renderMsgs(openChatId);
-      renderList();
+      scheduleRenderList();
       break;
     // Gallery
     case 'gallery_created':
@@ -1670,6 +1675,8 @@ function renderList(filter=''){
   if(!html)html=`<div class="eml"><div class="eml-ico">💬</div>${f?'Ничего не найдено':'Нажмите ✏️ чтобы начать'}</div>`;
   list.innerHTML=html;
 }
+let _rlTimer=0;
+function scheduleRenderList(){clearTimeout(_rlTimer);_rlTimer=setTimeout(()=>renderList(),16);}
 function filterChats(v){renderList(v);}
 function lastTs(id){const m=S.msgs[id];return m&&m.length?m[m.length-1].ts:0;}
 
@@ -1685,6 +1692,8 @@ function mobShowView(view){
   carea.style.display='';
   carea.classList.toggle('mob-open',view==='chat');
 }
+let _loadedChats=new Set();
+let _loadingMore=false;
 function openChat(id){
   openChatId=id;
   S.unread[id]=0;
@@ -1695,10 +1704,27 @@ function openChat(id){
   document.querySelector('.ibar').style.display='';
   if(isMobile()) document.querySelector('.stabs').classList.add('hidden');
   updateHeader(id);renderMsgs(id);renderList();
+  // Lazy load: request history only on first open (except __global__ which is sent at login)
+  if(id!=='__global__'&&!_loadedChats.has(id)){
+    _loadedChats.add(id);
+    emit('load_more',{chatId:id,before:null});
+  }
   mobShowView('chat');
   document.getElementById('minput').focus();
   const c=S.chats[id];
   loadPolls(id==='__global__'||c?.isGroup?'group':'chat',id);
+  // Scroll-to-load-more
+  const area=document.getElementById('msgs');
+  area.onscroll=function(){
+    if(area.scrollTop<80&&!_loadingMore){
+      const msgs=S.msgs[openChatId]||[];
+      if(msgs.length){
+        _loadingMore=true;
+        emit('load_more',{chatId:openChatId,before:msgs[0].ts});
+        setTimeout(()=>{_loadingMore=false;},1000);
+      }
+    }
+  };
 }
 function mobileBack(){
   if(isMobile()) document.querySelector('.stabs').classList.remove('hidden');
@@ -2664,7 +2690,7 @@ function drawBg(canvas,bgId,t){
       const colors=[bg.color1,bg.color2,bg.color3];
       ctx.beginPath();
       ctx.globalAlpha=.25;
-      for(let x=0;x<=w;x+=4){
+      for(let x=0;x<=w;x+=8){
         const y=h*.3+Math.sin(x*.005+t*.001+i*2)*h*.15+Math.sin(x*.01+t*.0015)*h*.08;
         x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
       }
@@ -2683,7 +2709,7 @@ function drawBg(canvas,bgId,t){
     ctx.fillStyle=bg.color1;ctx.fillRect(0,0,w,h);
     for(let i=0;i<4;i++){
       ctx.beginPath();ctx.globalAlpha=.08+i*.02;
-      for(let x=0;x<=w;x+=3){
+      for(let x=0;x<=w;x+=6){
         const y=h*.5+Math.sin(x*.008+t*.001+i*1.5)*h*.12+Math.cos(x*.005+t*.0008+i)*h*.08;
         x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
       }
@@ -2711,10 +2737,14 @@ function drawBg(canvas,bgId,t){
       ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(99,102,241,.5)';ctx.fill();
     });
     ctx.strokeStyle='rgba(99,102,241,.08)';ctx.lineWidth=.5;
-    for(let i=0;i<canvas._pts.length;i++)for(let j=i+1;j<canvas._pts.length;j++){
-      const dx=canvas._pts[i].x-canvas._pts[j].x,dy=canvas._pts[i].y-canvas._pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
-      if(d<100){ctx.beginPath();ctx.moveTo(canvas._pts[i].x,canvas._pts[i].y);ctx.lineTo(canvas._pts[j].x,canvas._pts[j].y);ctx.stroke();}
+    const _d=100,pts=canvas._pts;
+    ctx.beginPath();
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const dx=pts[i].x-pts[j].x;if(dx>_d||dx<-_d)continue;
+      const dy=pts[i].y-pts[j].y;if(dy>_d||dy<-_d)continue;
+      if(dx*dx+dy*dy<_d*_d){ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);}
     }
+    ctx.stroke();
   } else if(bgId==='matrix'){
     ctx.fillStyle='rgba(10,10,10,.15)';ctx.fillRect(0,0,w,h);
     if(!canvas._cols){canvas._cols=Array.from({length:Math.ceil(w/14)},()=>Math.random()*h);}
@@ -2742,12 +2772,13 @@ function drawBg(canvas,bgId,t){
       ctx.fillStyle=rg;ctx.fillRect(0,0,w,h);
     }
   } else if(bgId==='plasma'){
-    for(let x=0;x<w;x+=4)for(let y=0;y<h;y+=4){
+    const step=8;
+    for(let x=0;x<w;x+=step)for(let y=0;y<h;y+=step){
       const v=Math.sin(x*.01+t*.002)+Math.sin(y*.01+t*.0015)+Math.sin((x+y)*.007+t*.001)+Math.sin(Math.sqrt(x*x+y*y)*.005);
       const r=Math.floor(128+127*Math.sin(v*Math.PI));
       const g=Math.floor(128+127*Math.sin(v*Math.PI+2));
       const b=Math.floor(128+127*Math.sin(v*Math.PI+4));
-      ctx.fillStyle=`rgb(${r>>1},${g>>2},${b>>1})`;ctx.fillRect(x,y,4,4);
+      ctx.fillStyle=`rgb(${r>>1},${g>>2},${b>>1})`;ctx.fillRect(x,y,step,step);
     }
   }
 }
@@ -2767,7 +2798,13 @@ function applyBg(bgId){
   resize();
   window.removeEventListener('resize',el._resizeFn);
   el._resizeFn=resize;window.addEventListener('resize',resize);
-  function loop(t){drawBg(el,bgId,t);bgAnimId=requestAnimationFrame(loop);}
+  let _lastFrame=0;
+  function loop(t){
+    bgAnimId=requestAnimationFrame(loop);
+    if(t-_lastFrame<33)return; // cap ~30fps
+    _lastFrame=t;
+    drawBg(el,bgId,t);
+  }
   bgAnimId=requestAnimationFrame(loop);
 }
 
